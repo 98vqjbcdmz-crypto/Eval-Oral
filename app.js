@@ -779,21 +779,7 @@ function swapInitialRoles() {
     return;
   }
 
-  stopTimer('current');
-  archiveCurrentPassage();
-
-  const previousCurrent = clone(state.roles.current);
-  previousCurrent.hasPassed = true;
-  const previousPatient = clone(state.roles.patient);
-
-  state.roles.patient = previousCurrent;
-  state.roles.current = previousPatient;
-  state.awaitingBootstrapSwap = false;
-  resetTimer('current', true);
-  syncAvailableCases();
-  render();
-  saveState();
-  showToast(`Passage basculé : ${state.roles.current.name} passe maintenant. L'étudiant en préparation conserve son temps restant.`);
+  finishAndAdvancePassage({ archive: true });
 }
 
 function enterNextPrep() {
@@ -828,9 +814,34 @@ function rotateTurn() {
     return;
   }
 
+  finishAndAdvancePassage({ archive: true });
+}
+
+function finishAndAdvancePassage({ archive = true } = {}) {
+  if (!state.roles.current) return;
+
   stopTimer('current');
+  if (archive) {
+    archiveCurrentPassage();
+  }
+
+  if (state.awaitingBootstrapSwap) {
+    const previousCurrent = clone(state.roles.current);
+    previousCurrent.hasPassed = true;
+    const previousPatient = clone(state.roles.patient);
+
+    state.roles.patient = previousCurrent;
+    state.roles.current = previousPatient;
+    state.awaitingBootstrapSwap = false;
+    resetTimer('current', true);
+    syncAvailableCases();
+    render();
+    saveState();
+    showToast(`Passage terminé : ${state.roles.current.name} est prêt à passer. L'étudiant en préparation conserve son temps restant.`);
+    return;
+  }
+
   stopTimer('prep');
-  archiveCurrentPassage();
 
   const leavingStudent = state.roles.patient ? clone(state.roles.patient) : null;
   const previousCurrent = clone(state.roles.current);
@@ -921,7 +932,6 @@ function saveAndFinishEvaluation() {
     state.editingEvaluation = null;
     showToast('Fiche corrigée et réenregistrée.');
   } else {
-    stopTimer('current');
     upsertHistoryEntry({
       key: submitted.key,
       name: submitted.studentName,
@@ -931,7 +941,7 @@ function saveAndFinishEvaluation() {
       endedAt: new Date().toISOString()
     });
     state.currentEvaluation = null;
-    showToast('Passage enregistré. Utilise ensuite la rotation pour faire entrer le suivant.');
+    finishAndAdvancePassage({ archive: false });
   }
   render();
   saveState(true);
@@ -1299,7 +1309,7 @@ function renderEvaluationForm() {
   const visible = !!evaluation && (!!state.roles.current || isEditingHistory);
   els.evaluationPanel.classList.toggle('hidden', !visible);
   els.submitExamBtn.disabled = !visible;
-  els.submitExamBtn.textContent = isEditingHistory ? 'Enregistrer les corrections' : 'Enregistrer et terminer';
+  els.submitExamBtn.textContent = isEditingHistory ? 'Enregistrer les corrections' : 'Enregistrer et passer à la suite';
   if (!visible) return;
 
   els.evaluationMeta.textContent = isEditingHistory
