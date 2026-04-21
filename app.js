@@ -466,7 +466,7 @@ function startLive(firstCurrentKey) {
   syncAvailableCases();
   render();
   saveState();
-  showToast(`Oral lancé : ${state.roles.current.name} passe. Le second étudiant du binôme initial gardera son cas réservé pour passer juste après.`);
+  showToast(`Oral lancé : ${state.roles.current.name} passe. Le second étudiant du binôme initial passera juste après.`);
 }
 
 function archiveCurrentPassage() {
@@ -646,7 +646,7 @@ function renderMainRoles() {
 
   els.patientName.textContent = patient?.name || '—';
   els.patientNote.textContent = patient
-    ? `${patient.name} tient actuellement le rôle de patient. Cas réservé : ${patient.caseTitle || 'non tiré'}. Ce cas ne peut pas être remis dans l'urne tant que l'étudiant reste dans la salle.`
+    ? `${patient.name} tient actuellement le rôle de patient.`
     : 'Le rôle patient sera occupé par l\'étudiant qui vient de passer, sauf pour le tout premier oral où le binôme initial s\'intervertit.';
 
   els.nextTurnBtn.disabled = !current;
