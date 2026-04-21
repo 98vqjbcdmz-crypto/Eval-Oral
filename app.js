@@ -34,6 +34,7 @@ const initialState = () => ({
   pendingDraw: null,
   drawPreview: null,
   currentEvaluation: null,
+  editingEvaluation: null,
   sessionLoadedAt: null,
   awaitingBootstrapSwap: false
 });
@@ -269,6 +270,7 @@ function loadState() {
     state.timers = Object.assign(initialState().timers, state.timers || {});
     state.drawPreview = state.drawPreview || null;
     state.currentEvaluation = state.currentEvaluation || null;
+    state.editingEvaluation = state.editingEvaluation || null;
     state.submittedEvaluations = state.submittedEvaluations || [];
     if (typeof state.awaitingBootstrapSwap !== 'boolean') {
       state.awaitingBootstrapSwap = false;
@@ -750,13 +752,21 @@ function startLive(firstCurrentKey) {
 
 function archiveCurrentPassage() {
   if (!state.roles.current) return;
-  state.history.push({
+  const submitted = findSubmittedEvaluationForStudent(state.roles.current);
+  const evaluation = state.currentEvaluation
+    ? clone(state.currentEvaluation)
+    : (submitted ? clone(submitted) : null);
+  const score = Number.isFinite(Number(evaluation?.score)) ? Number(evaluation.score) : (evaluation ? calculateEvaluationScore(evaluation) : null);
+  upsertHistoryEntry({
+    key: evaluation?.key || submitted?.key || passageKey(state.roles.current),
     name: state.roles.current.name,
     caseTitle: state.roles.current.caseTitle || 'Cas non renseigné',
-    evaluation: state.currentEvaluation ? clone(state.currentEvaluation) : null,
+    evaluation,
+    score,
     endedAt: new Date().toISOString()
   });
   state.currentEvaluation = null;
+  state.editingEvaluation = null;
 }
 
 function swapInitialRoles() {
@@ -886,36 +896,68 @@ function exportSession() {
   showToast('Session exportée.');
 }
 
-function submitExamPdf() {
+function saveAndFinishEvaluation() {
   updateEvaluationFromForm();
-  if (!state.currentEvaluation || !state.roles.current) {
+  const evaluation = getActiveEvaluation();
+  if (!evaluation) {
     alert('Aucune fiche d’évaluation active.');
     return;
   }
-  const score = getEvaluationScore();
-  if (score < 10 && !state.currentEvaluation.lowScoreComment.trim()) {
-    const ok = confirm('La note est inférieure à 10/20 et le commentaire dédié est vide. Générer quand même ?');
+  const score = getEvaluationScore(evaluation);
+  if (score < 10 && !evaluation.lowScoreComment.trim()) {
+    const ok = confirm('La note est inférieure à 10/20 et le commentaire dédié est vide. Enregistrer quand même ?');
     if (!ok) return;
   }
-  const pdf = buildExamPdf(state.currentEvaluation, score);
-  archiveSubmittedEvaluation(state.currentEvaluation, score);
+  const submitted = archiveSubmittedEvaluation(evaluation, score);
+  if (state.editingEvaluation) {
+    upsertHistoryEntry({
+      key: submitted.key,
+      name: submitted.studentName,
+      caseTitle: submitted.caseTitle || 'Cas non renseigné',
+      evaluation: clone(submitted),
+      score,
+      endedAt: findHistoryItemByKey(submitted.key)?.endedAt || submitted.submittedAt
+    });
+    state.editingEvaluation = null;
+    showToast('Fiche corrigée et réenregistrée.');
+  } else {
+    stopTimer('current');
+    upsertHistoryEntry({
+      key: submitted.key,
+      name: submitted.studentName,
+      caseTitle: submitted.caseTitle || 'Cas non renseigné',
+      evaluation: clone(submitted),
+      score,
+      endedAt: new Date().toISOString()
+    });
+    state.currentEvaluation = null;
+    showToast('Passage enregistré. Utilise ensuite la rotation pour faire entrer le suivant.');
+  }
+  render();
+  saveState(true);
+  if (confirm('Fiche enregistrée. Télécharger le PDF maintenant ?')) {
+    downloadExamPdf(submitted, score);
+  }
+}
+
+function downloadExamPdf(evaluation, score = calculateEvaluationScore(evaluation)) {
+  const pdf = buildExamPdf(evaluation, score);
   const blob = new Blob([pdf], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = buildExamFilename(state.currentEvaluation);
+  a.download = buildExamFilename(evaluation);
   a.click();
   URL.revokeObjectURL(url);
-  saveState(true);
-  showToast('Fiche d’examen PDF générée et ajoutée au récapitulatif de journée.');
 }
 
 function archiveSubmittedEvaluation(evaluation, score) {
+  state.submittedEvaluations = state.submittedEvaluations || [];
   const submitted = {
     ...clone(evaluation),
     score,
     submittedAt: new Date().toISOString(),
-    key: evaluationKey(evaluation)
+    key: evaluation.key || evaluationKey(evaluation)
   };
   const existingIndex = state.submittedEvaluations.findIndex(item => item.key === submitted.key);
   if (existingIndex >= 0) {
@@ -923,6 +965,7 @@ function archiveSubmittedEvaluation(evaluation, score) {
   } else {
     state.submittedEvaluations.push(submitted);
   }
+  return submitted;
 }
 
 function evaluationKey(evaluation) {
@@ -931,6 +974,38 @@ function evaluationKey(evaluation) {
     evaluation.caseTitle || '',
     evaluation.startedAt || ''
   ].join('|');
+}
+
+function passageKey(student) {
+  return [
+    student?.name || '',
+    student?.caseTitle || 'Cas non renseigné'
+  ].join('|');
+}
+
+function findSubmittedEvaluationForStudent(student) {
+  const matches = (state.submittedEvaluations || []).filter(item =>
+    item.studentName === student?.name
+    && (item.caseTitle || 'Cas non renseigné') === (student?.caseTitle || 'Cas non renseigné')
+  );
+  return matches[matches.length - 1] || null;
+}
+
+function findHistoryItemByKey(key) {
+  return (state.history || []).find(item => key && item.key === key) || null;
+}
+
+function upsertHistoryEntry(entry) {
+  state.history = state.history || [];
+  const existingIndex = state.history.findIndex(item =>
+    (entry.key && item.key === entry.key)
+    || (!entry.key && item.name === entry.name && item.caseTitle === entry.caseTitle)
+  );
+  if (existingIndex >= 0) {
+    state.history[existingIndex] = { ...state.history[existingIndex], ...entry };
+  } else {
+    state.history.push(entry);
+  }
 }
 
 function buildExamFilename(evaluation) {
@@ -1138,6 +1213,39 @@ function renderQueue(listEl, items, emptyMessage, formatter = (x) => x.name || x
   });
 }
 
+function renderHistoryList() {
+  els.historyList.innerHTML = '';
+  if (!state.history.length) {
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = 'Aucun passage terminé pour le moment.';
+    els.historyList.appendChild(empty);
+    return;
+  }
+  state.history.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'pill history-row';
+
+    const nameBtn = document.createElement('button');
+    nameBtn.className = 'history-name';
+    nameBtn.type = 'button';
+    nameBtn.textContent = `${item.name} - ${item.caseTitle}${findEvaluationForHistory(item) ? ` - ${formatScore(findEvaluationScoreForHistory(item))}/20` : ' - fiche non soumise'}`;
+    nameBtn.title = 'Rééditer la fiche';
+    nameBtn.addEventListener('click', () => editHistoryEvaluation(item));
+
+    const viewBtn = document.createElement('button');
+    viewBtn.className = 'history-view';
+    viewBtn.type = 'button';
+    viewBtn.textContent = 'Voir';
+    viewBtn.title = 'Ouvrir la fiche dans une autre fenêtre';
+    viewBtn.addEventListener('click', () => openHistoryResult(item));
+
+    row.appendChild(nameBtn);
+    row.appendChild(viewBtn);
+    els.historyList.appendChild(row);
+  });
+}
+
 function setIdentityBadge(el, student) {
   el.classList.toggle('ok', !!student?.idChecked);
   el.textContent = student?.idChecked ? 'Carte d\'identité vérifiée' : 'Carte d\'identité non cochée';
@@ -1156,6 +1264,19 @@ function defaultEvaluation(student = state.roles.current) {
   };
 }
 
+function hydrateEvaluationCriteria(evaluation) {
+  if (!evaluation) return null;
+  evaluation.criteria = evaluation.criteria || {};
+  EVALUATION_CRITERIA.forEach(item => {
+    evaluation.criteria[item.id] = evaluation.criteria[item.id] || { score: '', comment: '' };
+  });
+  return evaluation;
+}
+
+function getActiveEvaluation() {
+  return hydrateEvaluationCriteria(state.editingEvaluation || state.currentEvaluation);
+}
+
 function ensureCurrentEvaluation() {
   const current = state.roles.current;
   if (!current) return;
@@ -1167,22 +1288,24 @@ function ensureCurrentEvaluation() {
   }
 }
 
-function getEvaluationScore() {
-  const evaluation = state.currentEvaluation;
+function getEvaluationScore(evaluation = getActiveEvaluation()) {
   if (!evaluation) return 0;
   return calculateEvaluationScore(evaluation);
 }
 
 function renderEvaluationForm() {
-  const evaluation = state.currentEvaluation;
-  const visible = !!(state.roles.current && evaluation);
+  const evaluation = getActiveEvaluation();
+  const isEditingHistory = !!state.editingEvaluation;
+  const visible = !!evaluation && (!!state.roles.current || isEditingHistory);
   els.evaluationPanel.classList.toggle('hidden', !visible);
   els.submitExamBtn.disabled = !visible;
+  els.submitExamBtn.textContent = isEditingHistory ? 'Enregistrer les corrections' : 'Enregistrer et terminer';
   if (!visible) return;
-  evaluation.criteria = evaluation.criteria || {};
 
-  els.evaluationMeta.textContent = `${evaluation.studentName || 'Étudiant'} - ${evaluation.caseTitle || 'Cas non renseigné'}`;
-  els.evaluationScore.textContent = `${formatScore(getEvaluationScore())}/20`;
+  els.evaluationMeta.textContent = isEditingHistory
+    ? `Réédition historique - ${evaluation.studentName || 'Étudiant'} - ${evaluation.caseTitle || 'Cas non renseigné'}`
+    : `${evaluation.studentName || 'Étudiant'} - ${evaluation.caseTitle || 'Cas non renseigné'}`;
+  els.evaluationScore.textContent = `${formatScore(getEvaluationScore(evaluation))}/20`;
   if (!els.evaluationItems.dataset.ready) {
     els.evaluationItems.innerHTML = EVALUATION_CRITERIA.map(item => `
       <div class="eval-item">
@@ -1213,18 +1336,18 @@ function renderEvaluationForm() {
 }
 
 function updateEvaluationFromForm() {
-  if (!state.currentEvaluation) return;
-  state.currentEvaluation.criteria = state.currentEvaluation.criteria || {};
+  const evaluation = getActiveEvaluation();
+  if (!evaluation) return;
   EVALUATION_CRITERIA.forEach(item => {
-    state.currentEvaluation.criteria[item.id] = {
+    evaluation.criteria[item.id] = {
       score: els.evaluationItems.querySelector(`[data-eval-score="${item.id}"]`).value,
       comment: els.evaluationItems.querySelector(`[data-eval-comment="${item.id}"]`).value
     };
   });
-  state.currentEvaluation.positivePoints = els.positivePoints.value;
-  state.currentEvaluation.improvementAreas = els.improvementAreas.value;
-  state.currentEvaluation.lowScoreComment = els.lowScoreComment.value;
-  els.evaluationScore.textContent = `${formatScore(getEvaluationScore())}/20`;
+  evaluation.positivePoints = els.positivePoints.value;
+  evaluation.improvementAreas = els.improvementAreas.value;
+  evaluation.lowScoreComment = els.lowScoreComment.value;
+  els.evaluationScore.textContent = `${formatScore(getEvaluationScore(evaluation))}/20`;
   saveState(true);
 }
 
@@ -1233,10 +1356,29 @@ function formatScore(score) {
 }
 
 function findEvaluationForHistory(historyItem) {
-  if (historyItem.evaluation) return historyItem.evaluation;
-  return (state.submittedEvaluations || []).find(item =>
+  const submittedByKey = (state.submittedEvaluations || []).find(item => historyItem.key && item.key === historyItem.key);
+  if (submittedByKey) return submittedByKey;
+  const submittedByIdentity = (state.submittedEvaluations || []).find(item =>
     item.studentName === historyItem.name && item.caseTitle === historyItem.caseTitle
   ) || null;
+  if (submittedByIdentity) return submittedByIdentity;
+  if (historyItem.evaluation) return historyItem.evaluation;
+  return null;
+}
+
+function editHistoryEvaluation(historyItem) {
+  const evaluation = findEvaluationForHistory(historyItem) || defaultEvaluation({
+    name: historyItem.name,
+    caseTitle: historyItem.caseTitle
+  });
+  state.editingEvaluation = hydrateEvaluationCriteria({
+    ...clone(evaluation),
+    key: evaluation.key || historyItem.key || evaluationKey(evaluation)
+  });
+  render();
+  saveState(true);
+  setTimeout(() => els.evaluationPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  showToast('Fiche ouverte en réédition depuis l’historique.');
 }
 
 function findEvaluationScoreForHistory(historyItem) {
@@ -1439,13 +1581,7 @@ function renderOverview() {
   els.casesLeft.textContent = state.availableCases.length;
   els.nextStudentPreview.textContent = nextQueueLabel() || 'Aucun autre étudiant en attente.';
   renderQueue(els.queueList, state.queue, 'Aucun étudiant en attente.', item => isPauseMarker(item) ? 'PAUSE ÉVALUATEUR' : item.name);
-  renderQueue(
-    els.historyList,
-    state.history,
-    'Aucun passage terminé pour le moment.',
-    item => `${item.name} — ${item.caseTitle}${findEvaluationForHistory(item) ? ` — ${formatScore(findEvaluationScoreForHistory(item))}/20` : ' — fiche non soumise'}`,
-    openHistoryResult
-  );
+  renderHistoryList();
 }
 
 function renderInputs() {
@@ -1536,7 +1672,7 @@ els.resetNextPrepTimerBtn.addEventListener('click', () => resetTimer('nextPrep')
 els.startCurrentTimerBtn.addEventListener('click', () => startTimer('current'));
 els.pauseCurrentTimerBtn.addEventListener('click', () => stopTimer('current'));
 els.resetCurrentTimerBtn.addEventListener('click', () => resetTimer('current'));
-els.submitExamBtn.addEventListener('click', submitExamPdf);
+els.submitExamBtn.addEventListener('click', saveAndFinishEvaluation);
 els.positivePoints.addEventListener('input', updateEvaluationFromForm);
 els.improvementAreas.addEventListener('input', updateEvaluationFromForm);
 els.lowScoreComment.addEventListener('input', updateEvaluationFromForm);

@@ -549,6 +549,41 @@
       background: #e3eefb;
     }
 
+    .history-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      border-radius: 14px;
+    }
+
+    .history-name,
+    .history-view {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .history-name {
+      min-width: 0;
+      text-align: left;
+      overflow-wrap: anywhere;
+    }
+
+    .history-view {
+      color: var(--accent);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .history-name:hover,
+    .history-view:hover {
+      text-decoration: underline;
+    }
+
     .footer-bar {
       margin-top: auto;
       padding: 14px 16px;
@@ -818,7 +853,7 @@
               <button id="startCurrentTimerBtn" class="btn-primary">Démarrer</button>
               <button id="pauseCurrentTimerBtn" class="btn-secondary">Pause</button>
               <button id="resetCurrentTimerBtn" class="btn-warning">Remettre à 10 min</button>
-              <button id="submitExamBtn" class="btn-success">Soumettre fiche PDF</button>
+              <button id="submitExamBtn" class="btn-success">Enregistrer et terminer</button>
             </div>
           </article>
 
