@@ -28,6 +28,7 @@ const initialState = () => ({
     bootB: { duration: 900, remaining: 900, running: false, finished: false }
   },
   pendingDraw: null,
+  drawPreview: null,
   sessionLoadedAt: null,
   awaitingBootstrapSwap: false
 });
@@ -135,10 +136,12 @@ function updateClock() {
   });
 }
 
-function saveState() {
+function saveState(silent = false) {
   syncAvailableCases();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  els.footerState.textContent = 'Session sauvegardée.';
+  if (!silent) {
+    els.footerState.textContent = 'Session sauvegardée.';
+  }
 }
 
 function loadState() {
@@ -150,6 +153,7 @@ function loadState() {
     state.bootstrap = Object.assign({ A: null, B: null }, state.bootstrap || {});
     state.roles = Object.assign({ current: null, prep: null, patient: null }, state.roles || {});
     state.timers = Object.assign(initialState().timers, state.timers || {});
+    state.drawPreview = state.drawPreview || null;
     if (typeof state.awaitingBootstrapSwap !== 'boolean') {
       state.awaitingBootstrapSwap = false;
     }
@@ -342,14 +346,41 @@ function openDrawModal(studentName, pool) {
   els.drawModal.setAttribute('aria-hidden', 'false');
   let ticks = 0;
   modalFinalCase = modalPool[Math.floor(Math.random() * modalPool.length)];
+  state.drawPreview = {
+    active: true,
+    target: state.pendingDraw,
+    studentName,
+    caseTitle: 'Préparation du tirage...',
+    final: false,
+    updatedAt: new Date().toISOString()
+  };
+  saveState(true);
   clearInterval(modalSpinInterval);
   modalSpinInterval = setInterval(() => {
     const sample = modalPool[Math.floor(Math.random() * modalPool.length)];
     els.drawCaseBox.textContent = sample;
+    state.drawPreview = {
+      active: true,
+      target: state.pendingDraw,
+      studentName,
+      caseTitle: sample,
+      final: false,
+      updatedAt: new Date().toISOString()
+    };
+    saveState(true);
     ticks += 1;
     if (ticks > 18) {
       clearInterval(modalSpinInterval);
       els.drawCaseBox.textContent = modalFinalCase;
+      state.drawPreview = {
+        active: true,
+        target: state.pendingDraw,
+        studentName,
+        caseTitle: modalFinalCase,
+        final: true,
+        updatedAt: new Date().toISOString()
+      };
+      saveState(true);
     }
   }, 80);
 }
@@ -360,8 +391,10 @@ function closeDrawModal() {
   modalFinalCase = null;
   modalPool = [];
   state.pendingDraw = null;
+  state.drawPreview = null;
   els.drawModal.classList.add('hidden');
   els.drawModal.setAttribute('aria-hidden', 'true');
+  saveState(true);
 }
 
 function confirmDraw() {

@@ -203,6 +203,33 @@
       position: relative;
       z-index: 1;
     }
+    .case-box.drawing {
+      border-color: #1f6fb3;
+      background:
+        linear-gradient(90deg, rgba(31,111,179,0.08), rgba(25,135,84,0.08), rgba(31,111,179,0.08)),
+        var(--panel-2);
+      background-size: 220% 100%;
+      animation: drawSweep 1.1s ease-in-out infinite;
+    }
+    .case-box.drawing::before {
+      content: "Tirage en cours";
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .case-box.drawing-final::before {
+      content: "Cas tiré";
+      color: var(--ok);
+    }
+    @keyframes drawSweep {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
     .identity {
       margin-top: 14px;
       display: inline-flex;
@@ -318,6 +345,7 @@
         <div class="timer hidden" id="card2Timer">
           <div class="mini-label" id="card2TimerLabel">Information</div>
           <div class="timer-value" id="card2TimerValue" style="font-size: clamp(1.6rem, 2.2vw, 2rem); letter-spacing: 0; line-height: 1.3;">—</div>
+          <div class="bar"><div id="card2TimerBar"></div></div>
         </div>
       </article>
 
@@ -369,6 +397,7 @@
       c2Timer: document.getElementById('card2Timer'),
       c2TimerLabel: document.getElementById('card2TimerLabel'),
       c2TimerValue: document.getElementById('card2TimerValue'),
+      c2TimerBar: document.getElementById('card2TimerBar'),
       c3Title: document.getElementById('card3Title'),
       c3Tag: document.getElementById('card3Tag'),
       c3Name: document.getElementById('card3Name'),
@@ -398,6 +427,19 @@
       const ok = !!student?.idChecked;
       el.classList.toggle('ok', ok);
       el.textContent = ok ? 'Carte d\'identité vérifiée' : 'Carte d\'identité non cochée';
+    }
+
+    function setCaseText(el, value) {
+      el.classList.remove('drawing', 'drawing-final');
+      el.textContent = value;
+    }
+
+    function applyDrawPreview(state, target, el) {
+      const preview = state.drawPreview;
+      if (!preview?.active || preview.target !== target) return;
+      el.textContent = preview.caseTitle || 'Tirage en cours...';
+      el.classList.add('drawing');
+      el.classList.toggle('drawing-final', !!preview.final);
     }
 
     function setTimerVisual(container, valueEl, barEl, timer) {
@@ -434,14 +476,14 @@
       els.c1Title.textContent = 'Étudiant qui passe';
       els.c1Tag.textContent = '10 minutes';
       els.c1Name.textContent = current?.name || '—';
-      els.c1Case.textContent = current?.caseTitle || 'Aucun cas affiché.';
+      setCaseText(els.c1Case, current?.caseTitle || 'Aucun cas affiché.');
       setIdentity(els.c1Identity, current);
       setTimerVisual(els.c1Timer, els.c1TimerValue, els.c1TimerBar, state.timers?.current);
 
       els.c2Title.textContent = 'Patient';
       els.c2Tag.textContent = 'en salle';
       els.c2Name.textContent = patient?.name || '—';
-      els.c2Case.textContent = patient?.caseTitle || 'Aucun cas affiché.';
+      setCaseText(els.c2Case, patient?.caseTitle || 'Aucun cas affiché.');
       setIdentity(els.c2Identity, patient);
       els.c2Timer.classList.add('hidden');
       els.c2TimerLabel.textContent = 'Information';
@@ -450,7 +492,8 @@
       els.c3Title.textContent = 'Étudiant qui prépare';
       els.c3Tag.textContent = '15 minutes';
       els.c3Name.textContent = prep?.name || '—';
-      els.c3Case.textContent = prep?.caseTitle || 'En attente de tirage.';
+      setCaseText(els.c3Case, prep?.caseTitle || 'En attente de tirage.');
+      applyDrawPreview(state, 'prep', els.c3Case);
       setIdentity(els.c3Identity, prep);
       setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, state.timers?.prep);
 
@@ -471,23 +514,25 @@
       els.c1Title.textContent = 'Étudiant A';
       els.c1Tag.textContent = 'préparation';
       els.c1Name.textContent = A?.name || '—';
-      els.c1Case.textContent = A?.caseTitle || 'En attente de tirage.';
+      setCaseText(els.c1Case, A?.caseTitle || 'En attente de tirage.');
+      applyDrawPreview(state, 'bootstrapA', els.c1Case);
       setIdentity(els.c1Identity, A);
       setTimerVisual(els.c1Timer, els.c1TimerValue, els.c1TimerBar, state.timers?.bootA);
 
       els.c2Title.textContent = 'Étudiant B';
       els.c2Tag.textContent = 'préparation';
       els.c2Name.textContent = B?.name || '—';
-      els.c2Case.textContent = B?.caseTitle || 'En attente de tirage.';
+      setCaseText(els.c2Case, B?.caseTitle || 'En attente de tirage.');
+      applyDrawPreview(state, 'bootstrapB', els.c2Case);
       setIdentity(els.c2Identity, B);
-      els.c2Timer.classList.add('hidden');
-      els.c2TimerLabel.textContent = 'Information';
-      els.c2TimerValue.textContent = '—';
+      els.c2Timer.classList.remove('hidden');
+      els.c2TimerLabel.textContent = 'Minuteur';
+      setTimerVisual(els.c2Timer, els.c2TimerValue, els.c2TimerBar, state.timers?.bootB);
 
       els.c3Title.textContent = 'Prochain étudiant';
       els.c3Tag.textContent = 'attente';
       els.c3Name.textContent = next?.name || '—';
-      els.c3Case.textContent = 'Entrera en préparation après le lancement du premier oral.';
+      setCaseText(els.c3Case, 'Entrera en préparation après le lancement du premier oral.');
       setIdentity(els.c3Identity, null);
       setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, { duration: 900, remaining: 900, running: false, finished: false });
 
@@ -501,14 +546,17 @@
         [els.c1Title, 'Étudiant qui passe'], [els.c2Title, 'Patient'], [els.c3Title, 'Étudiant qui prépare'],
         [els.c1Tag, '10 minutes'], [els.c2Tag, 'en salle'], [els.c3Tag, '15 minutes'],
         [els.c1Name, '—'], [els.c2Name, '—'], [els.c3Name, '—'],
-        [els.c1Case, 'Aucun cas affiché.'], [els.c2Case, 'Aucun cas affiché.'], [els.c3Case, 'Aucun cas affiché.'],
         [els.c1TimerValue, '10:00'], [els.c3TimerValue, '15:00']
       ].forEach(([el, value]) => el.textContent = value);
+      setCaseText(els.c1Case, 'Aucun cas affiché.');
+      setCaseText(els.c2Case, 'Aucun cas affiché.');
+      setCaseText(els.c3Case, 'Aucun cas affiché.');
       els.c2TimerLabel.textContent = 'Information';
       els.c2TimerValue.textContent = '—';
       els.c2Timer.classList.add('hidden');
       [els.c1Identity, els.c2Identity, els.c3Identity].forEach(el => { el.classList.remove('ok'); el.textContent = 'Carte d\'identité non cochée'; });
       els.c1TimerBar.style.width = '100%';
+      els.c2TimerBar.style.width = '100%';
       els.c3TimerBar.style.width = '100%';
       els.footerInfo.textContent = 'Prêt.';
     }
