@@ -252,7 +252,7 @@ function beep(times = 1) {
 }
 
 function startTimer(key) {
-  stopTimer(key, true);
+  clearTimerInterval(key);
   const timer = state.timers[key];
   if (!timer) return;
   if (timer.remaining <= 0) {
@@ -279,12 +279,16 @@ function startTimer(key) {
   saveState();
 }
 
-function stopTimer(key, silent = false) {
+function clearTimerInterval(key) {
   if (intervals[key]) {
     clearInterval(intervals[key]);
     delete intervals[key];
   }
-  if (state.timers[key]) {
+}
+
+function stopTimer(key, silent = false) {
+  clearTimerInterval(key);
+  if (state.timers[key] && !silent) {
     state.timers[key].running = false;
   }
   if (!silent) {
@@ -516,8 +520,8 @@ function startLive(firstCurrentKey) {
     if (!ok) return;
   }
 
-  stopTimer('bootA', true);
-  stopTimer('bootB', true);
+  stopTimer('bootA');
+  stopTimer('bootB');
 
   state.roles.current = clone(current);
   state.roles.patient = clone(patient);
@@ -551,7 +555,7 @@ function swapInitialRoles() {
     return;
   }
 
-  stopTimer('current', true);
+  stopTimer('current');
   archiveCurrentPassage();
 
   const previousCurrent = clone(state.roles.current);
@@ -600,8 +604,8 @@ function rotateTurn() {
     return;
   }
 
-  stopTimer('current', true);
-  stopTimer('prep', true);
+  stopTimer('current');
+  stopTimer('prep');
   archiveCurrentPassage();
 
   const leavingStudent = state.roles.patient ? clone(state.roles.patient) : null;
@@ -633,7 +637,7 @@ function rotateTurn() {
   state.roles.prep = nextPrep || (state.queue.length ? state.queue.shift() : null);
   state.roles.nextPrep = null;
 
-  stopTimer('nextPrep', true);
+  stopTimer('nextPrep');
   resetTimer('current', true);
   if (nextPrep) {
     state.timers.prep = nextPrepTimer;
