@@ -33,7 +33,7 @@ La session est sauvegardée localement dans le navigateur.
 - Les deux vues partagent la même session via le stockage local du navigateur.
 
 ## Règle d'urne intégrée
-- Un cas clinique tiré reste indisponible tant que l'étudiant est encore dans la salle.
-- Le cas revient automatiquement dans l'urne quand l'étudiant sort à la rotation suivante.
-- Le tirage du préparant exclut donc les cas déjà présents dans la salle, notamment celui de l'étudiant qui passe.
+- Un cas clinique est retiré de l'urne uniquement pendant le passage de l'étudiant concerné.
+- Le cas revient automatiquement dans l'urne dès la fin du passage.
+- Le tirage du préparant exclut donc seulement le cas actuellement présenté.
 - Cas particulier du premier binôme : après le premier oral, utiliser **Faire passer l'autre du binôme initial** pour que le second étudiant du binôme passe à son tour sans faire sortir le préparant déjà entré.

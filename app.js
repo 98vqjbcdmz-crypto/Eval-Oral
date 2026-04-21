@@ -281,37 +281,27 @@ function getStudentByTarget(target) {
   return null;
 }
 
-function getStudentsInRoom() {
-  if (state.phase === 'bootstrap') {
-    return [state.bootstrap.A, state.bootstrap.B].filter(Boolean);
-  }
-  if (state.phase === 'live') {
-    return [state.roles.current, state.roles.prep, state.roles.patient].filter(Boolean);
-  }
-  return [];
-}
-
 function getUrnCases(target = null) {
   const targetStudent = typeof target === 'string' ? getStudentByTarget(target) : target;
-  const reserved = new Set(
-    getStudentsInRoom()
-      .filter(student => student && student !== targetStudent)
-      .map(student => student.caseTitle)
-      .filter(Boolean)
-  );
-  return state.originalCases.filter(caseTitle => !reserved.has(caseTitle));
+  const currentCase = state.phase === 'live' ? state.roles.current?.caseTitle : null;
+  if (!currentCase || targetStudent === state.roles.current) {
+    return clone(state.originalCases);
+  }
+  return state.originalCases.filter(caseTitle => caseTitle !== currentCase);
 }
 
 function syncAvailableCases() {
   state.availableCases = clone(getUrnCases());
-  state.usedCases = getStudentsInRoom().map(student => student.caseTitle).filter(Boolean);
+  state.usedCases = state.phase === 'live' && state.roles.current?.caseTitle
+    ? [state.roles.current.caseTitle]
+    : [];
 }
 
 function recalculateUrn() {
   syncAvailableCases();
   render();
   saveState();
-  showToast('Urne recalculée selon les étudiants actuellement en salle.');
+  showToast('Urne recalculée : seul le cas du passage en cours est retiré.');
 }
 
 function drawCaseFor(target) {
@@ -408,7 +398,7 @@ function confirmDraw() {
   syncAvailableCases();
   render();
   saveState();
-  showToast(`Cas attribué à ${label}. Ce cas restera hors de l'urne tant que l'étudiant sera dans la salle.`);
+  showToast(`Cas attribué à ${label}. Il sera retiré de l'urne seulement pendant son passage.`);
 }
 
 function loadSessionFromInputs() {
@@ -535,7 +525,7 @@ function rotateTurn() {
     render();
     saveState();
     showToast(leavingStudent
-      ? `${leavingStudent.name} sort de la salle : son cas revient dans l'urne. Plus aucun étudiant n'est en préparation.`
+      ? `${leavingStudent.name} sort de la salle. Le cas du passage terminé revient dans l'urne.`
       : 'Dernier passage clôturé.');
     return;
   }
@@ -550,7 +540,7 @@ function rotateTurn() {
   render();
   saveState();
   showToast(leavingStudent
-    ? `${leavingStudent.name} sort de la salle : son cas revient dans l'urne. Rotation effectuée.`
+    ? `${leavingStudent.name} sort de la salle. Le cas du passage terminé revient dans l'urne.`
     : 'Rotation effectuée.');
 }
 
@@ -659,7 +649,7 @@ function renderOverview() {
   if (state.phase === 'setup') {
     els.overviewStatus.textContent = 'En attente de configuration.';
   } else if (state.phase === 'bootstrap') {
-    els.overviewStatus.textContent = 'Binôme initial en préparation. Les cas tirés sont retirés de l\'urne tant que les étudiants restent dans la salle.';
+    els.overviewStatus.textContent = 'Binôme initial en préparation. Aucun cas n\'est retiré avant le début d\'un passage.';
   } else if (state.awaitingBootstrapSwap) {
     const current = state.roles.current?.name || '—';
     const patient = state.roles.patient?.name || '—';
@@ -668,7 +658,7 @@ function renderOverview() {
   } else if (state.phase === 'live') {
     const current = state.roles.current?.name || '—';
     const prep = state.roles.prep?.name || 'aucun étudiant';
-    els.overviewStatus.textContent = `Oral en cours : ${current}. Préparation parallèle : ${prep}. Le tirage exclut les cas déjà présents dans la salle.`;
+    els.overviewStatus.textContent = `Oral en cours : ${current}. Préparation parallèle : ${prep}. Le tirage exclut seulement le cas du passage en cours.`;
   }
 
   els.casesLeft.textContent = state.availableCases.length;

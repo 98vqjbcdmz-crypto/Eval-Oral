@@ -503,7 +503,7 @@
       } else {
         els.statusBox.textContent = `Oral en cours : ${current?.name || '—'}. Préparation parallèle : ${prep?.name || '—'}. Prochain étudiant à entrer : ${nextName}.`;
       }
-      els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas actuellement disponibles dans l'urne.`;
+      els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas disponibles pour le prochain tirage.`;
     }
 
     function renderBootstrap(state) {
@@ -537,7 +537,7 @@
       setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, { duration: 900, remaining: 900, running: false, finished: false });
 
       els.statusBox.textContent = 'Binôme initial en préparation. Vérifiez l’identité, tirez les cas, puis choisissez qui passe en premier.';
-      els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas actuellement disponibles dans l'urne.`;
+      els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas disponibles pour le prochain tirage.`;
     }
 
     function renderSetup() {
