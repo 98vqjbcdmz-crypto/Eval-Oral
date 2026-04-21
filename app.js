@@ -286,6 +286,7 @@ function startTimer(key) {
   clearTimerInterval(key);
   const timer = state.timers[key];
   if (!timer) return;
+  updateRunningTimer(key);
   if (timer.remaining <= 0) {
     timer.remaining = timer.duration;
   }
@@ -296,19 +297,8 @@ function startTimer(key) {
   timer.finished = false;
   timer.startedAt = Date.now();
   timer.remainingAtStart = timer.remaining;
-  intervals[key] = setInterval(() => {
-    const wasRunning = !!state.timers[key]?.running;
-    const t = updateRunningTimer(key);
-    if (wasRunning && t?.finished && t.remaining <= 0) {
-      clearTimerInterval(key);
-      beep(3);
-      showToast(`Temps terminé : ${timerLabel(key)}.`);
-    } else if (!t?.running) {
-      return;
-    }
-    render();
-    saveState();
-  }, 1000);
+  timer.endsAt = Date.now() + (timer.remaining * 1000);
+  timer.notifiedFinished = false;
   render();
   saveState();
 }
@@ -327,6 +317,7 @@ function stopTimer(key, silent = false) {
     state.timers[key].running = false;
     state.timers[key].startedAt = null;
     state.timers[key].remainingAtStart = state.timers[key].remaining;
+    state.timers[key].endsAt = null;
   }
   if (!silent) {
     render();
@@ -343,6 +334,8 @@ function resetTimer(key, silent = false) {
   timer.running = false;
   timer.startedAt = null;
   timer.remainingAtStart = timer.duration;
+  timer.endsAt = null;
+  timer.notifiedFinished = false;
   if (!silent) {
     render();
     saveState();
@@ -372,16 +365,25 @@ function applyTimerVisual(timer, blockEl, valueEl, barEl) {
 
 function updateRunningTimer(key) {
   const timer = state.timers[key];
-  if (!timer?.running || !timer.startedAt) return timer;
-  const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
-  const base = Number.isFinite(timer.remainingAtStart) ? timer.remainingAtStart : timer.remaining;
-  timer.remaining = Math.max(0, base - elapsed);
+  if (!timer?.running) return timer;
+  if (!timer.endsAt && timer.startedAt) {
+    const base = Number.isFinite(timer.remainingAtStart) ? timer.remainingAtStart : timer.remaining;
+    timer.endsAt = timer.startedAt + (base * 1000);
+  }
+  if (!timer.endsAt) return timer;
+  timer.remaining = Math.max(0, Math.ceil((timer.endsAt - Date.now()) / 1000));
   if (timer.remaining <= 0) {
     timer.remaining = 0;
     timer.running = false;
     timer.finished = true;
     timer.startedAt = null;
     timer.remainingAtStart = 0;
+    timer.endsAt = null;
+    if (!timer.notifiedFinished) {
+      timer.notifiedFinished = true;
+      beep(3);
+      showToast(`Temps terminé : ${timerLabel(key)}.`);
+    }
   }
   return timer;
 }
@@ -1331,10 +1333,16 @@ window.addEventListener('storage', (event) => {
 loadState();
 updateClock();
 setInterval(updateClock, 1000);
+setInterval(() => {
+  if (Object.values(state.timers || {}).some(timer => timer?.running)) {
+    render();
+    saveState(true);
+  }
+}, 1000);
 
 ['current', 'prep', 'nextPrep', 'bootA', 'bootB'].forEach(key => {
   if (state.timers[key]?.running) {
-    startTimer(key);
+    updateRunningTimer(key);
   }
 });
 

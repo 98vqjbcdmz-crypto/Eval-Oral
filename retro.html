@@ -489,10 +489,13 @@
     }
 
     function updateRunningTimer(timer) {
-      if (!timer?.running || !timer.startedAt) return;
-      const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
-      const base = Number.isFinite(timer.remainingAtStart) ? timer.remainingAtStart : timer.remaining;
-      timer.remaining = Math.max(0, base - elapsed);
+      if (!timer?.running) return;
+      if (!timer.endsAt && timer.startedAt) {
+        const base = Number.isFinite(timer.remainingAtStart) ? timer.remainingAtStart : timer.remaining;
+        timer.endsAt = timer.startedAt + (base * 1000);
+      }
+      if (!timer.endsAt) return;
+      timer.remaining = Math.max(0, Math.ceil((timer.endsAt - Date.now()) / 1000));
       if (timer.remaining <= 0) {
         timer.remaining = 0;
         timer.running = false;
