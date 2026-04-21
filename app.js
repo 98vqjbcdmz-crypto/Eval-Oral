@@ -1,5 +1,6 @@
 
 const STORAGE_KEY = 'ifmk-oraux-dashboard-v1';
+const BACKUP_STORAGE_KEY = 'ifmk-oraux-dashboard-backup-v1';
 
 const initialState = () => ({
   config: {
@@ -51,6 +52,7 @@ const els = {
   loadSessionBtn: document.getElementById('loadSessionBtn'),
   saveSessionBtn: document.getElementById('saveSessionBtn'),
   resetAllBtn: document.getElementById('resetAllBtn'),
+  restoreBackupBtn: document.getElementById('restoreBackupBtn'),
   initialPanel: document.getElementById('initialPanel'),
   initialHelp: document.getElementById('initialHelp'),
   initialEmpty: document.getElementById('initialEmpty'),
@@ -159,6 +161,27 @@ function saveState(silent = false) {
   }
 }
 
+function getBackup() {
+  try {
+    const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.error('Impossible de relire la sauvegarde de secours', error);
+    return null;
+  }
+}
+
+function updateBackupButton() {
+  els.restoreBackupBtn.disabled = !getBackup();
+}
+
+function createResetBackup() {
+  localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify({
+    savedAt: new Date().toISOString(),
+    state: clone(state)
+  }));
+}
+
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return;
@@ -176,6 +199,28 @@ function loadState() {
   } catch (error) {
     console.error('Impossible de relire la session locale', error);
   }
+}
+
+function restoreBackup() {
+  const backup = getBackup();
+  if (!backup?.state) {
+    alert('Aucune sauvegarde de secours disponible.');
+    updateBackupButton();
+    return;
+  }
+  const ok = confirm('Restaurer la dernière sauvegarde de secours ? La session actuelle sera remplacée.');
+  if (!ok) return;
+  Object.keys(intervals).forEach(key => stopTimer(key, true));
+  state = Object.assign(initialState(), backup.state);
+  state.bootstrap = Object.assign({ A: null, B: null }, state.bootstrap || {});
+  state.roles = Object.assign({ current: null, prep: null, nextPrep: null, patient: null }, state.roles || {});
+  state.timers = Object.assign(initialState().timers, state.timers || {});
+  state.drawPreview = state.drawPreview || null;
+  syncAvailableCases();
+  saveState(true);
+  render();
+  const savedAt = backup.savedAt ? new Date(backup.savedAt).toLocaleString('fr-FR') : 'date inconnue';
+  showToast(`Sauvegarde de secours restaurée (${savedAt}).`);
 }
 
 function showToast(message) {
@@ -616,12 +661,14 @@ function hardReset() {
   const ok = confirm('Réinitialiser complètement la session ?');
   if (!ok) return;
   Object.keys(intervals).forEach(key => stopTimer(key, true));
+  createResetBackup();
   localStorage.removeItem(STORAGE_KEY);
   state = initialState();
   els.studentsInput.value = '';
   els.casesInput.value = '';
   render();
-  showToast('Session réinitialisée.');
+  updateBackupButton();
+  showToast('Session réinitialisée. Une sauvegarde de secours a été conservée.');
 }
 
 function renderQueue(listEl, items, emptyMessage, formatter = (x) => x.name || x) {
@@ -754,6 +801,7 @@ function render() {
   renderBootstrapPanel();
   renderMainRoles();
   renderOverview();
+  updateBackupButton();
 }
 
 els.logoImage.addEventListener('load', () => {
@@ -776,6 +824,7 @@ els.casesInput.addEventListener('input', () => {
 
 els.loadSessionBtn.addEventListener('click', loadSessionFromInputs);
 els.saveSessionBtn.addEventListener('click', saveState);
+els.restoreBackupBtn.addEventListener('click', restoreBackup);
 els.resetAllBtn.addEventListener('click', hardReset);
 
 els.bootAId.addEventListener('change', () => {
