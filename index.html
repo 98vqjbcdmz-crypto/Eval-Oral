@@ -433,6 +433,7 @@
     }
 
     .evaluation-grid,
+    .evaluation-details,
     .synthesis-grid {
       display: grid;
       gap: 14px;
@@ -442,6 +443,12 @@
 
     .evaluation-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .evaluation-details {
+      grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+      margin-bottom: 14px;
+      align-items: end;
     }
 
     .synthesis-grid {
@@ -469,6 +476,7 @@
 
     .eval-item select,
     .eval-item textarea,
+    .evaluation-details textarea,
     .synthesis-grid textarea {
       width: 100%;
       border: 1px solid var(--line);
@@ -484,8 +492,21 @@
       margin-top: 10px;
     }
 
+    .evaluation-details textarea {
+      min-height: 76px;
+    }
+
     .synthesis-grid textarea {
       min-height: 96px;
+    }
+
+    .click-edit {
+      cursor: pointer;
+    }
+
+    .click-edit:hover {
+      outline: 2px solid rgba(32, 79, 134, .18);
+      outline-offset: 3px;
     }
 
     .score-display {
@@ -707,6 +728,7 @@
       }
       .dashboard,
       .initial-grid,
+      .evaluation-details,
       .evaluation-grid,
       .synthesis-grid {
         grid-template-columns: 1fr;
@@ -840,10 +862,10 @@
               <div class="card-title">Étudiant qui passe</div>
               <span class="tag blue">10 minutes</span>
             </div>
-            <div id="currentName" class="name">Aucun oral lancé</div>
+            <div id="currentName" class="name click-edit" title="Cliquer pour éditer la fiche">Aucun oral lancé</div>
             <div class="mini-label">Cas clinique</div>
-            <div id="currentCase" class="case-box">Charge une session, prépare le binôme initial puis lance le premier oral.</div>
-            <div id="currentIdentityBadge" class="identity-badge">Carte d'identité non cochée</div>
+            <div id="currentCase" class="case-box click-edit" title="Cliquer pour éditer la fiche">Charge une session, prépare le binôme initial puis lance le premier oral.</div>
+            <div id="currentIdentityBadge" class="identity-badge click-edit" title="Cliquer pour éditer la fiche">Carte d'identité non cochée</div>
             <div id="currentTimerBlock" class="timer">
               <div class="mini-label">Minuteur oral</div>
               <div id="currentTimerValue" class="timer-value">10:00</div>
@@ -867,6 +889,13 @@
                 <div class="mini-label">Note automatique</div>
                 <div id="evaluationScore" class="score-display">0/20</div>
               </div>
+            </div>
+            <div class="evaluation-details">
+              <div>
+                <label for="evaluationCaseTitle" class="mini-label">Cas clinique</label>
+                <textarea id="evaluationCaseTitle"></textarea>
+              </div>
+              <label class="checkbox"><input id="evaluationIdChecked" type="checkbox"> Carte d'identité vérifiée</label>
             </div>
             <div id="evaluationItems" class="evaluation-grid"></div>
             <div class="synthesis-grid">

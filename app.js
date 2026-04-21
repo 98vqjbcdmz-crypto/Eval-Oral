@@ -156,6 +156,8 @@ const els = {
   evaluationPanel: document.getElementById('evaluationPanel'),
   evaluationMeta: document.getElementById('evaluationMeta'),
   evaluationScore: document.getElementById('evaluationScore'),
+  evaluationCaseTitle: document.getElementById('evaluationCaseTitle'),
+  evaluationIdChecked: document.getElementById('evaluationIdChecked'),
   evaluationItems: document.getElementById('evaluationItems'),
   positivePoints: document.getElementById('positivePoints'),
   improvementAreas: document.getElementById('improvementAreas'),
@@ -761,6 +763,7 @@ function archiveCurrentPassage() {
     key: evaluation?.key || submitted?.key || passageKey(state.roles.current),
     name: state.roles.current.name,
     caseTitle: state.roles.current.caseTitle || 'Cas non renseigné',
+    idChecked: !!state.roles.current.idChecked,
     evaluation,
     score,
     endedAt: new Date().toISOString()
@@ -919,12 +922,23 @@ function saveAndFinishEvaluation() {
     const ok = confirm('La note est inférieure à 10/20 et le commentaire dédié est vide. Enregistrer quand même ?');
     if (!ok) return;
   }
+  const editRef = state.editingEvaluation
+    ? {
+      key: state.editingEvaluation._historyKey || state.editingEvaluation.key || '',
+      name: state.editingEvaluation._historyName || state.editingEvaluation.studentName || '',
+      caseTitle: state.editingEvaluation._historyCaseTitle || state.editingEvaluation.caseTitle || ''
+    }
+    : null;
   const submitted = archiveSubmittedEvaluation(evaluation, score);
   if (state.editingEvaluation) {
     upsertHistoryEntry({
       key: submitted.key,
+      matchKey: editRef.key,
+      matchName: editRef.name,
+      matchCaseTitle: editRef.caseTitle,
       name: submitted.studentName,
       caseTitle: submitted.caseTitle || 'Cas non renseigné',
+      idChecked: !!submitted.idChecked,
       evaluation: clone(submitted),
       score,
       endedAt: findHistoryItemByKey(submitted.key)?.endedAt || submitted.submittedAt
@@ -936,6 +950,7 @@ function saveAndFinishEvaluation() {
       key: submitted.key,
       name: submitted.studentName,
       caseTitle: submitted.caseTitle || 'Cas non renseigné',
+      idChecked: !!submitted.idChecked,
       evaluation: clone(submitted),
       score,
       endedAt: new Date().toISOString()
@@ -963,8 +978,12 @@ function downloadExamPdf(evaluation, score = calculateEvaluationScore(evaluation
 
 function archiveSubmittedEvaluation(evaluation, score) {
   state.submittedEvaluations = state.submittedEvaluations || [];
+  const cleanEvaluation = clone(evaluation);
+  delete cleanEvaluation._historyKey;
+  delete cleanEvaluation._historyName;
+  delete cleanEvaluation._historyCaseTitle;
   const submitted = {
-    ...clone(evaluation),
+    ...cleanEvaluation,
     score,
     submittedAt: new Date().toISOString(),
     key: evaluation.key || evaluationKey(evaluation)
@@ -1007,14 +1026,22 @@ function findHistoryItemByKey(key) {
 
 function upsertHistoryEntry(entry) {
   state.history = state.history || [];
+  const {
+    matchKey,
+    matchName,
+    matchCaseTitle,
+    ...storedEntry
+  } = entry;
   const existingIndex = state.history.findIndex(item =>
     (entry.key && item.key === entry.key)
+    || (matchKey && item.key === matchKey)
+    || (matchName && item.name === matchName && item.caseTitle === matchCaseTitle)
     || (!entry.key && item.name === entry.name && item.caseTitle === entry.caseTitle)
   );
   if (existingIndex >= 0) {
-    state.history[existingIndex] = { ...state.history[existingIndex], ...entry };
+    state.history[existingIndex] = { ...state.history[existingIndex], ...storedEntry };
   } else {
-    state.history.push(entry);
+    state.history.push(storedEntry);
   }
 }
 
@@ -1037,6 +1064,7 @@ function buildExamPdf(evaluation, score) {
     `Nom / prénom : ${evaluation.studentName || 'Non renseigné'}`,
     `Session : ${evaluation.sessionName || 'UI10-S6'}`,
     `Cas clinique : ${evaluation.caseTitle || 'Non renseigné'}`,
+    `Carte d'identité : ${evaluation.idChecked ? 'vérifiée' : 'non cochée'}`,
     `Date : ${new Date().toLocaleString('fr-FR')}`,
     `Note : ${formatScore(score)}/20`,
     ''
@@ -1265,6 +1293,7 @@ function defaultEvaluation(student = state.roles.current) {
   return {
     studentName: student?.name || '',
     caseTitle: student?.caseTitle || '',
+    idChecked: !!student?.idChecked,
     sessionName: 'UI10-S6',
     startedAt: new Date().toISOString(),
     criteria: Object.fromEntries(EVALUATION_CRITERIA.map(item => [item.id, { score: '', comment: '' }])),
@@ -1276,6 +1305,8 @@ function defaultEvaluation(student = state.roles.current) {
 
 function hydrateEvaluationCriteria(evaluation) {
   if (!evaluation) return null;
+  evaluation.caseTitle = evaluation.caseTitle || '';
+  evaluation.idChecked = !!evaluation.idChecked;
   evaluation.criteria = evaluation.criteria || {};
   EVALUATION_CRITERIA.forEach(item => {
     evaluation.criteria[item.id] = evaluation.criteria[item.id] || { score: '', comment: '' };
@@ -1285,6 +1316,15 @@ function hydrateEvaluationCriteria(evaluation) {
 
 function getActiveEvaluation() {
   return hydrateEvaluationCriteria(state.editingEvaluation || state.currentEvaluation);
+}
+
+function openCurrentEvaluationEditor() {
+  if (!state.roles.current) return;
+  ensureCurrentEvaluation();
+  render();
+  saveState(true);
+  setTimeout(() => els.evaluationPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  showToast('Fiche du passage ouverte en édition.');
 }
 
 function ensureCurrentEvaluation() {
@@ -1316,6 +1356,10 @@ function renderEvaluationForm() {
     ? `Réédition historique - ${evaluation.studentName || 'Étudiant'} - ${evaluation.caseTitle || 'Cas non renseigné'}`
     : `${evaluation.studentName || 'Étudiant'} - ${evaluation.caseTitle || 'Cas non renseigné'}`;
   els.evaluationScore.textContent = `${formatScore(getEvaluationScore(evaluation))}/20`;
+  if (document.activeElement !== els.evaluationCaseTitle) {
+    els.evaluationCaseTitle.value = evaluation.caseTitle || '';
+  }
+  els.evaluationIdChecked.checked = !!evaluation.idChecked;
   if (!els.evaluationItems.dataset.ready) {
     els.evaluationItems.innerHTML = EVALUATION_CRITERIA.map(item => `
       <div class="eval-item">
@@ -1348,6 +1392,8 @@ function renderEvaluationForm() {
 function updateEvaluationFromForm() {
   const evaluation = getActiveEvaluation();
   if (!evaluation) return;
+  evaluation.caseTitle = els.evaluationCaseTitle.value.trim();
+  evaluation.idChecked = els.evaluationIdChecked.checked;
   EVALUATION_CRITERIA.forEach(item => {
     evaluation.criteria[item.id] = {
       score: els.evaluationItems.querySelector(`[data-eval-score="${item.id}"]`).value,
@@ -1358,7 +1404,17 @@ function updateEvaluationFromForm() {
   evaluation.improvementAreas = els.improvementAreas.value;
   evaluation.lowScoreComment = els.lowScoreComment.value;
   els.evaluationScore.textContent = `${formatScore(getEvaluationScore(evaluation))}/20`;
+  syncCurrentRoleFromEvaluation(evaluation);
   saveState(true);
+}
+
+function syncCurrentRoleFromEvaluation(evaluation) {
+  if (state.editingEvaluation || !state.roles.current) return;
+  state.roles.current.caseTitle = evaluation.caseTitle;
+  state.roles.current.idChecked = !!evaluation.idChecked;
+  els.currentCase.textContent = evaluation.caseTitle || 'Cas non renseigné';
+  setIdentityBadge(els.currentIdentityBadge, state.roles.current);
+  syncAvailableCases();
 }
 
 function formatScore(score) {
@@ -1379,11 +1435,15 @@ function findEvaluationForHistory(historyItem) {
 function editHistoryEvaluation(historyItem) {
   const evaluation = findEvaluationForHistory(historyItem) || defaultEvaluation({
     name: historyItem.name,
-    caseTitle: historyItem.caseTitle
+    caseTitle: historyItem.caseTitle,
+    idChecked: !!historyItem.idChecked
   });
   state.editingEvaluation = hydrateEvaluationCriteria({
     ...clone(evaluation),
-    key: evaluation.key || historyItem.key || evaluationKey(evaluation)
+    key: evaluation.key || historyItem.key || evaluationKey(evaluation),
+    _historyKey: historyItem.key || '',
+    _historyName: historyItem.name || '',
+    _historyCaseTitle: historyItem.caseTitle || ''
   });
   render();
   saveState(true);
@@ -1420,6 +1480,7 @@ function openHistoryResult(historyItem) {
 }
 
 function buildHistoryResultHtml(historyItem, evaluation, score, payload) {
+  const caseTitle = evaluation?.caseTitle || historyItem.caseTitle || 'Non renseigné';
   const criteriaHtml = evaluation
     ? EVALUATION_CRITERIA.map(item => {
       const criterion = evaluation.criteria?.[item.id] || {};
@@ -1470,7 +1531,8 @@ function buildHistoryResultHtml(historyItem, evaluation, score, payload) {
     <body>
       <main>
         <h1>${escapeHtml(historyItem.name || 'Étudiant')}</h1>
-        <p class="muted">Cas clinique : ${escapeHtml(historyItem.caseTitle || 'Non renseigné')}</p>
+        <p class="muted">Cas clinique : ${escapeHtml(caseTitle)}</p>
+        <p class="muted">Carte d'identité : ${escapeHtml(evaluation?.idChecked ? 'vérifiée' : 'non cochée')}</p>
         <div class="score">${evaluation ? `${escapeHtml(formatScore(score))}/20` : '—'}</div>
         ${evaluation ? '<button id="download">Télécharger la fiche PDF</button>' : ''}
         ${criteriaHtml}
@@ -1683,6 +1745,11 @@ els.startCurrentTimerBtn.addEventListener('click', () => startTimer('current'));
 els.pauseCurrentTimerBtn.addEventListener('click', () => stopTimer('current'));
 els.resetCurrentTimerBtn.addEventListener('click', () => resetTimer('current'));
 els.submitExamBtn.addEventListener('click', saveAndFinishEvaluation);
+els.currentName.addEventListener('click', openCurrentEvaluationEditor);
+els.currentCase.addEventListener('click', openCurrentEvaluationEditor);
+els.currentIdentityBadge.addEventListener('click', openCurrentEvaluationEditor);
+els.evaluationCaseTitle.addEventListener('input', updateEvaluationFromForm);
+els.evaluationIdChecked.addEventListener('change', updateEvaluationFromForm);
 els.positivePoints.addEventListener('input', updateEvaluationFromForm);
 els.improvementAreas.addEventListener('input', updateEvaluationFromForm);
 els.lowScoreComment.addEventListener('input', updateEvaluationFromForm);
