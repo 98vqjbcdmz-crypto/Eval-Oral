@@ -315,9 +315,9 @@
         <div class="mini-label" style="margin-top: 16px;">Cas clinique</div>
         <div class="case-box" id="card2Case">Aucun cas affiché.</div>
         <div class="identity" id="card2Identity">Carte d'identité non cochée</div>
-        <div class="timer" id="card2Timer">
+        <div class="timer hidden" id="card2Timer">
           <div class="mini-label" id="card2TimerLabel">Information</div>
-          <div class="timer-value" id="card2TimerValue" style="font-size: clamp(1.6rem, 2.2vw, 2rem); letter-spacing: 0; line-height: 1.3;">Cas réservé tant que l'étudiant est en salle</div>
+          <div class="timer-value" id="card2TimerValue" style="font-size: clamp(1.6rem, 2.2vw, 2rem); letter-spacing: 0; line-height: 1.3;">—</div>
         </div>
       </article>
 
@@ -443,10 +443,9 @@
       els.c2Name.textContent = patient?.name || '—';
       els.c2Case.textContent = patient?.caseTitle || 'Aucun cas affiché.';
       setIdentity(els.c2Identity, patient);
-      els.c2TimerLabel.textContent = 'Règle d\'urne';
-      els.c2TimerValue.textContent = patient
-        ? 'Cas réservé tant que l\'étudiant est en salle'
-        : 'Aucun patient en salle';
+      els.c2Timer.classList.add('hidden');
+      els.c2TimerLabel.textContent = 'Information';
+      els.c2TimerValue.textContent = '—';
 
       els.c3Title.textContent = 'Étudiant qui prépare';
       els.c3Tag.textContent = '15 minutes';
@@ -481,8 +480,9 @@
       els.c2Name.textContent = B?.name || '—';
       els.c2Case.textContent = B?.caseTitle || 'En attente de tirage.';
       setIdentity(els.c2Identity, B);
-      els.c2TimerLabel.textContent = 'Règle d\'urne';
-      els.c2TimerValue.textContent = 'Chaque cas tiré reste réservé tant que l\'étudiant reste en salle';
+      els.c2Timer.classList.add('hidden');
+      els.c2TimerLabel.textContent = 'Information';
+      els.c2TimerValue.textContent = '—';
 
       els.c3Title.textContent = 'Prochain étudiant';
       els.c3Tag.textContent = 'attente';
@@ -505,7 +505,8 @@
         [els.c1TimerValue, '10:00'], [els.c3TimerValue, '15:00']
       ].forEach(([el, value]) => el.textContent = value);
       els.c2TimerLabel.textContent = 'Information';
-      els.c2TimerValue.textContent = 'Aucune session active';
+      els.c2TimerValue.textContent = '—';
+      els.c2Timer.classList.add('hidden');
       [els.c1Identity, els.c2Identity, els.c3Identity].forEach(el => { el.classList.remove('ok'); el.textContent = 'Carte d\'identité non cochée'; });
       els.c1TimerBar.style.width = '100%';
       els.c3TimerBar.style.width = '100%';
