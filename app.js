@@ -49,6 +49,7 @@ const EVALUATION_CRITERIA = [
   {
     id: 'bilans',
     label: 'Évaluation (bilans) C1 et C4',
+    image: 'assets/grille-items/bilans.png',
     max: 5,
     levels: [
       { value: '5', label: '5 - Praticien expérimenté' },
@@ -61,6 +62,7 @@ const EVALUATION_CRITERIA = [
   {
     id: 'technique',
     label: 'Pratique technique C1, C2 et C4',
+    image: 'assets/grille-items/technique.png',
     max: 5,
     levels: [
       { value: '5', label: '5 - Praticien expérimenté' },
@@ -73,6 +75,7 @@ const EVALUATION_CRITERIA = [
   {
     id: 'cif',
     label: 'Classification internationale du fonctionnement C1 et C4',
+    image: 'assets/grille-items/cif.png',
     max: 5,
     levels: [
       { value: '5', label: '5 - Praticien expérimenté' },
@@ -85,6 +88,7 @@ const EVALUATION_CRITERIA = [
   {
     id: 'objectif',
     label: 'Objectif spécifique C2 et C4',
+    image: 'assets/grille-items/objectif.png',
     max: 3,
     levels: [
       { value: '3', label: '3 - Praticien expérimenté' },
@@ -97,6 +101,7 @@ const EVALUATION_CRITERIA = [
   {
     id: 'communication',
     label: 'Attitude et communication C5',
+    image: 'assets/grille-items/communication.png',
     max: 2,
     levels: [
       { value: '2', label: '2 - Praticien expérimenté' },
@@ -202,7 +207,11 @@ const els = {
   drawTarget: document.getElementById('drawTarget'),
   drawCaseBox: document.getElementById('drawCaseBox'),
   confirmDrawBtn: document.getElementById('confirmDrawBtn'),
-  cancelDrawBtn: document.getElementById('cancelDrawBtn')
+  cancelDrawBtn: document.getElementById('cancelDrawBtn'),
+  criterionPreviewModal: document.getElementById('criterionPreviewModal'),
+  criterionPreviewTitle: document.getElementById('criterionPreviewTitle'),
+  criterionPreviewImage: document.getElementById('criterionPreviewImage'),
+  closeCriterionPreviewBtn: document.getElementById('closeCriterionPreviewBtn')
 };
 
 function clone(obj) {
@@ -674,6 +683,23 @@ function closeDrawModal() {
   els.drawModal.classList.add('hidden');
   els.drawModal.setAttribute('aria-hidden', 'true');
   saveState(true);
+}
+
+function openCriterionPreview(itemId) {
+  const item = EVALUATION_CRITERIA.find(criterion => criterion.id === itemId);
+  if (!item) return;
+  els.criterionPreviewTitle.textContent = `${item.label} / ${item.max}`;
+  els.criterionPreviewImage.src = item.image;
+  els.criterionPreviewImage.alt = item.label;
+  els.criterionPreviewModal.classList.remove('hidden');
+  els.criterionPreviewModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeCriterionPreview() {
+  els.criterionPreviewModal.classList.add('hidden');
+  els.criterionPreviewModal.setAttribute('aria-hidden', 'true');
+  els.criterionPreviewImage.removeAttribute('src');
+  els.criterionPreviewImage.alt = '';
 }
 
 function confirmDraw() {
@@ -1364,6 +1390,9 @@ function renderEvaluationForm() {
     els.evaluationItems.innerHTML = EVALUATION_CRITERIA.map(item => `
       <div class="eval-item">
         <h4>${item.label} <span>/ ${item.max}</span></h4>
+        <button class="criterion-thumb" type="button" data-criterion-preview="${item.id}" title="Agrandir le repère de grille">
+          <img src="${item.image}" alt="${item.label}">
+        </button>
         <select data-eval-score="${item.id}">
           <option value="">Non évalué</option>
           ${item.levels.map(level => `<option value="${level.value}">${level.label}</option>`).join('')}
@@ -1377,6 +1406,9 @@ function renderEvaluationForm() {
     });
     els.evaluationItems.querySelectorAll('[data-eval-comment]').forEach(textarea => {
       textarea.addEventListener('input', updateEvaluationFromForm);
+    });
+    els.evaluationItems.querySelectorAll('[data-criterion-preview]').forEach(button => {
+      button.addEventListener('click', () => openCriterionPreview(button.dataset.criterionPreview));
     });
   }
   EVALUATION_CRITERIA.forEach(item => {
@@ -1763,10 +1795,19 @@ els.downloadSessionBtn.addEventListener('click', exportSession);
 
 els.confirmDrawBtn.addEventListener('click', confirmDraw);
 els.cancelDrawBtn.addEventListener('click', closeDrawModal);
+els.closeCriterionPreviewBtn.addEventListener('click', closeCriterionPreview);
+els.criterionPreviewModal.addEventListener('click', (event) => {
+  if (event.target === els.criterionPreviewModal) {
+    closeCriterionPreview();
+  }
+});
 
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !els.drawModal.classList.contains('hidden')) {
     closeDrawModal();
+  }
+  if (event.key === 'Escape' && !els.criterionPreviewModal.classList.contains('hidden')) {
+    closeCriterionPreview();
   }
 });
 

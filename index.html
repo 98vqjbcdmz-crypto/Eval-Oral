@@ -474,6 +474,31 @@
       font-weight: 800;
     }
 
+    .criterion-thumb {
+      width: 100%;
+      height: 104px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 0;
+      margin-bottom: 10px;
+      cursor: zoom-in;
+    }
+
+    .criterion-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: left center;
+      display: block;
+    }
+
+    .criterion-thumb:hover {
+      border-color: rgba(32, 79, 134, .55);
+      box-shadow: 0 8px 18px rgba(22, 50, 77, .1);
+    }
+
     .eval-item select,
     .eval-item textarea,
     .evaluation-details textarea,
@@ -717,6 +742,56 @@
       display: block;
       color: var(--muted);
       margin-top: 10px;
+    }
+
+    .criterion-preview-card {
+      width: min(1380px, 96vw);
+      max-height: 92vh;
+      text-align: left;
+      padding: 18px;
+    }
+
+    .criterion-preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .criterion-preview-head h3 {
+      margin: 0;
+      color: var(--accent);
+    }
+
+    .modal-close {
+      width: 42px;
+      height: 42px;
+      border: 0;
+      border-radius: 50%;
+      background: #eef3fa;
+      color: var(--text);
+      font-size: 1.8rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      background: #dfeaf6;
+    }
+
+    .criterion-preview-frame {
+      max-height: calc(92vh - 92px);
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .criterion-preview-frame img {
+      width: 100%;
+      min-width: 980px;
+      display: block;
     }
 
     @media (max-width: 1240px) {
@@ -1008,6 +1083,18 @@
         <button id="cancelDrawBtn" class="btn-secondary">Annuler</button>
       </div>
       <small>Après validation, le cas est attribué à l'étudiant et l'écran revient au tableau de bord.</small>
+    </div>
+  </div>
+
+  <div id="criterionPreviewModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card criterion-preview-card">
+      <div class="criterion-preview-head">
+        <h3 id="criterionPreviewTitle">Repère de grille</h3>
+        <button id="closeCriterionPreviewBtn" class="modal-close" type="button" aria-label="Fermer">×</button>
+      </div>
+      <div class="criterion-preview-frame">
+        <img id="criterionPreviewImage" alt="">
+      </div>
     </div>
   </div>
 
