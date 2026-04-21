@@ -473,6 +473,7 @@
     }
 
     function setTimerVisual(container, valueEl, barEl, timer) {
+      updateRunningTimer(timer);
       container.classList.remove('running', 'warning', 'finished');
       if (!timer) {
         valueEl.textContent = '—';
@@ -485,6 +486,18 @@
       else if (timer.remaining <= 60) container.classList.add('warning');
       const pct = Math.max(0, Math.min(100, ((timer.remaining || 0) / (timer.duration || 1)) * 100));
       barEl.style.width = `${pct}%`;
+    }
+
+    function updateRunningTimer(timer) {
+      if (!timer?.running || !timer.startedAt) return;
+      const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
+      const base = Number.isFinite(timer.remainingAtStart) ? timer.remainingAtStart : timer.remaining;
+      timer.remaining = Math.max(0, base - elapsed);
+      if (timer.remaining <= 0) {
+        timer.remaining = 0;
+        timer.running = false;
+        timer.finished = true;
+      }
     }
 
     function readState() {

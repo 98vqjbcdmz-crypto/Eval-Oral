@@ -32,6 +32,7 @@ const initialState = () => ({
   },
   pendingDraw: null,
   drawPreview: null,
+  currentEvaluation: null,
   sessionLoadedAt: null,
   awaitingBootstrapSwap: false
 });
@@ -41,6 +42,22 @@ let intervals = {};
 let modalSpinInterval = null;
 let modalFinalCase = null;
 let modalPool = [];
+
+const EVALUATION_CRITERIA = [
+  { id: 'bilans', label: 'Évaluation (bilans) C1 et C4' },
+  { id: 'technique', label: 'Pratique technique C1, C2 et C4' },
+  { id: 'cif', label: 'Classification internationale du fonctionnement C1 et C4' },
+  { id: 'communication', label: 'Communication, posture et argumentation C5' }
+];
+
+const EVALUATION_LEVELS = [
+  { value: '', label: 'Non évalué' },
+  { value: '5', label: '5 - Praticien expérimenté' },
+  { value: '3.75', label: '3,75 - Praticien avancé' },
+  { value: '2.5', label: '2,5 - Praticien intermédiaire' },
+  { value: '1.25', label: '1,25 - Novice avancé' },
+  { value: '0', label: '0 - Novice' }
+];
 
 const els = {
   logoImage: document.getElementById('logoImage'),
@@ -86,6 +103,14 @@ const els = {
   startCurrentTimerBtn: document.getElementById('startCurrentTimerBtn'),
   pauseCurrentTimerBtn: document.getElementById('pauseCurrentTimerBtn'),
   resetCurrentTimerBtn: document.getElementById('resetCurrentTimerBtn'),
+  submitExamBtn: document.getElementById('submitExamBtn'),
+  evaluationPanel: document.getElementById('evaluationPanel'),
+  evaluationMeta: document.getElementById('evaluationMeta'),
+  evaluationScore: document.getElementById('evaluationScore'),
+  evaluationItems: document.getElementById('evaluationItems'),
+  positivePoints: document.getElementById('positivePoints'),
+  improvementAreas: document.getElementById('improvementAreas'),
+  lowScoreComment: document.getElementById('lowScoreComment'),
   prepName: document.getElementById('prepName'),
   prepCase: document.getElementById('prepCase'),
   prepIdentityBadge: document.getElementById('prepIdentityBadge'),
@@ -118,6 +143,7 @@ const els = {
   casesLeft: document.getElementById('casesLeft'),
   nextStudentPreview: document.getElementById('nextStudentPreview'),
   restoreCasesBtn: document.getElementById('restoreCasesBtn'),
+  pauseEvaluationsBtn: document.getElementById('pauseEvaluationsBtn'),
   downloadSessionBtn: document.getElementById('downloadSessionBtn'),
   footerState: document.getElementById('footerState'),
   drawModal: document.getElementById('drawModal'),
@@ -154,6 +180,7 @@ function updateClock() {
 }
 
 function saveState(silent = false) {
+  updateRunningTimers();
   syncAvailableCases();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   if (!silent) {
@@ -192,6 +219,7 @@ function loadState() {
     state.roles = Object.assign({ current: null, prep: null, nextPrep: null, patient: null }, state.roles || {});
     state.timers = Object.assign(initialState().timers, state.timers || {});
     state.drawPreview = state.drawPreview || null;
+    state.currentEvaluation = state.currentEvaluation || null;
     if (typeof state.awaitingBootstrapSwap !== 'boolean') {
       state.awaitingBootstrapSwap = false;
     }
@@ -258,19 +286,22 @@ function startTimer(key) {
   if (timer.remaining <= 0) {
     timer.remaining = timer.duration;
   }
+  if (key === 'current') {
+    ensureCurrentEvaluation();
+  }
   timer.running = true;
   timer.finished = false;
+  timer.startedAt = Date.now();
+  timer.remainingAtStart = timer.remaining;
   intervals[key] = setInterval(() => {
-    const t = state.timers[key];
-    if (!t?.running) return;
-    t.remaining -= 1;
-    if (t.remaining <= 0) {
-      t.remaining = 0;
-      t.running = false;
-      t.finished = true;
-      stopTimer(key, true);
+    const wasRunning = !!state.timers[key]?.running;
+    const t = updateRunningTimer(key);
+    if (wasRunning && t?.finished && t.remaining <= 0) {
+      clearTimerInterval(key);
       beep(3);
       showToast(`Temps terminé : ${timerLabel(key)}.`);
+    } else if (!t?.running) {
+      return;
     }
     render();
     saveState();
@@ -287,9 +318,12 @@ function clearTimerInterval(key) {
 }
 
 function stopTimer(key, silent = false) {
+  updateRunningTimer(key);
   clearTimerInterval(key);
   if (state.timers[key] && !silent) {
     state.timers[key].running = false;
+    state.timers[key].startedAt = null;
+    state.timers[key].remainingAtStart = state.timers[key].remaining;
   }
   if (!silent) {
     render();
@@ -304,6 +338,8 @@ function resetTimer(key, silent = false) {
   timer.remaining = timer.duration;
   timer.finished = false;
   timer.running = false;
+  timer.startedAt = null;
+  timer.remainingAtStart = timer.duration;
   if (!silent) {
     render();
     saveState();
@@ -321,6 +357,7 @@ function timerLabel(key) {
 }
 
 function applyTimerVisual(timer, blockEl, valueEl, barEl) {
+  updateRunningTimers();
   valueEl.textContent = formatTime(timer.remaining);
   blockEl.classList.remove('running', 'warning', 'finished');
   if (timer.running) blockEl.classList.add('running');
@@ -328,6 +365,26 @@ function applyTimerVisual(timer, blockEl, valueEl, barEl) {
   else if (timer.remaining <= 60) blockEl.classList.add('warning');
   const pct = Math.max(0, Math.min(100, (timer.remaining / timer.duration) * 100));
   barEl.style.width = `${pct}%`;
+}
+
+function updateRunningTimer(key) {
+  const timer = state.timers[key];
+  if (!timer?.running || !timer.startedAt) return timer;
+  const elapsed = Math.floor((Date.now() - timer.startedAt) / 1000);
+  const base = Number.isFinite(timer.remainingAtStart) ? timer.remainingAtStart : timer.remaining;
+  timer.remaining = Math.max(0, base - elapsed);
+  if (timer.remaining <= 0) {
+    timer.remaining = 0;
+    timer.running = false;
+    timer.finished = true;
+    timer.startedAt = null;
+    timer.remainingAtStart = 0;
+  }
+  return timer;
+}
+
+function updateRunningTimers() {
+  Object.keys(state.timers || {}).forEach(updateRunningTimer);
 }
 
 function buildStudent(name) {
@@ -379,6 +436,36 @@ function recalculateUrn() {
   render();
   saveState();
   showToast('Urne recalculée : seul le cas du passage en cours est retiré.');
+}
+
+function pauseEvaluations() {
+  if (state.phase !== 'live') {
+    alert('La pause des évaluations est disponible pendant une session en cours.');
+    return;
+  }
+  const ok = confirm('Mettre en pause les évaluations et repartir ensuite avec deux étudiants en préparation, comme au démarrage ? Terminez le passage en cours avant de l’utiliser.');
+  if (!ok) return;
+  const candidates = [state.roles.prep, state.roles.nextPrep, ...state.queue].filter(Boolean);
+  if (candidates.length < 2) {
+    alert('Il faut au moins deux étudiants restants pour relancer un binôme de préparation après la pause.');
+    return;
+  }
+  Object.keys(intervals).forEach(key => stopTimer(key));
+  state.phase = 'bootstrap';
+  state.bootstrap.A = candidates.shift();
+  state.bootstrap.B = candidates.shift();
+  state.queue = candidates;
+  state.roles.current = null;
+  state.roles.patient = null;
+  state.roles.prep = null;
+  state.roles.nextPrep = null;
+  state.currentEvaluation = null;
+  state.awaitingBootstrapSwap = false;
+  ['current', 'prep', 'nextPrep', 'bootA', 'bootB'].forEach(key => resetTimer(key, true));
+  syncAvailableCases();
+  render();
+  saveState();
+  showToast('Pause évaluateur activée. Reprise avec deux étudiants en préparation.');
 }
 
 function drawCaseFor(target) {
@@ -541,8 +628,10 @@ function archiveCurrentPassage() {
   state.history.push({
     name: state.roles.current.name,
     caseTitle: state.roles.current.caseTitle || 'Cas non renseigné',
+    evaluation: state.currentEvaluation ? clone(state.currentEvaluation) : null,
     endedAt: new Date().toISOString()
   });
+  state.currentEvaluation = null;
 }
 
 function swapInitialRoles() {
@@ -672,6 +761,157 @@ function exportSession() {
   showToast('Session exportée.');
 }
 
+function submitExamPdf() {
+  updateEvaluationFromForm();
+  if (!state.currentEvaluation || !state.roles.current) {
+    alert('Aucune fiche d’évaluation active.');
+    return;
+  }
+  const score = getEvaluationScore();
+  if (score < 10 && !state.currentEvaluation.lowScoreComment.trim()) {
+    const ok = confirm('La note est inférieure à 10/20 et le commentaire dédié est vide. Générer quand même ?');
+    if (!ok) return;
+  }
+  const pdf = buildExamPdf(state.currentEvaluation, score);
+  const blob = new Blob([pdf], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = buildExamFilename(state.currentEvaluation);
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Fiche d’examen PDF générée.');
+}
+
+function buildExamFilename(evaluation) {
+  return `${safeFilename(evaluation.studentName)}_${safeFilename(evaluation.sessionName)}_${safeFilename(evaluation.caseTitle)}.pdf`;
+}
+
+function safeFilename(value) {
+  return String(value || 'non-renseigne')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'non-renseigne';
+}
+
+function buildExamPdf(evaluation, score) {
+  const lines = [
+    'Fiche d’examen - Oral UI10',
+    `Nom / prénom : ${evaluation.studentName || 'Non renseigné'}`,
+    `Session : ${evaluation.sessionName || 'UI10-S6'}`,
+    `Cas clinique : ${evaluation.caseTitle || 'Non renseigné'}`,
+    `Date : ${new Date().toLocaleString('fr-FR')}`,
+    `Note : ${formatScore(score)}/20`,
+    ''
+  ];
+
+  EVALUATION_CRITERIA.forEach(item => {
+    const criterion = evaluation.criteria?.[item.id] || {};
+    lines.push(`${item.label} : ${criterion.score || 'non évalué'} / 5`);
+    lines.push(`Commentaire : ${criterion.comment || ''}`);
+    lines.push('');
+  });
+  lines.push('Points positifs de l’étudiant');
+  lines.push(evaluation.positivePoints || '');
+  lines.push('');
+  lines.push('Axes d’amélioration');
+  lines.push(evaluation.improvementAreas || '');
+  lines.push('');
+  lines.push('Commentaire si note < 10');
+  lines.push(evaluation.lowScoreComment || '');
+
+  return createSimplePdf(lines);
+}
+
+function createSimplePdf(lines) {
+  const encoder = new TextEncoder();
+  const objects = [];
+  const pageObjects = [];
+  const pages = chunkPdfLines(lines.flatMap(wrapPdfLine), 42);
+
+  objects.push('<< /Type /Catalog /Pages 2 0 R >>');
+  objects.push('PAGES_PLACEHOLDER');
+  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+
+  pages.forEach(pageLines => {
+    const content = buildPdfContent(pageLines);
+    const contentObjectNumber = objects.length + 2;
+    const pageObject = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
+    pageObjects.push(objects.length + 1);
+    objects.push(pageObject);
+    objects.push(`<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`);
+  });
+
+  objects[1] = `<< /Type /Pages /Kids [${pageObjects.map(num => `${num} 0 R`).join(' ')}] /Count ${pageObjects.length} >>`;
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(encoder.encode(pdf).length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = encoder.encode(pdf).length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach(offset => {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return encoder.encode(pdf);
+}
+
+function buildPdfContent(lines) {
+  const escaped = lines.map((line, index) => {
+    const size = index === 0 ? 16 : 10;
+    const y = 800 - (index * 18);
+    return `BT /F1 ${size} Tf 50 ${y} Td (${escapePdfText(toPdfLatin(line))}) Tj ET`;
+  });
+  return escaped.join('\n');
+}
+
+function wrapPdfLine(line) {
+  const text = String(line || ' ');
+  if (text.length <= 92) return [text];
+  const words = text.split(' ');
+  const out = [];
+  let current = '';
+  words.forEach(word => {
+    if (`${current} ${word}`.trim().length > 92) {
+      out.push(current);
+      current = word;
+    } else {
+      current = `${current} ${word}`.trim();
+    }
+  });
+  if (current) out.push(current);
+  return out;
+}
+
+function chunkPdfLines(lines, size) {
+  const chunks = [];
+  for (let i = 0; i < lines.length; i += size) {
+    chunks.push(lines.slice(i, i + size));
+  }
+  return chunks.length ? chunks : [['Fiche d’examen']];
+}
+
+function toPdfLatin(text) {
+  return String(text)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/œ/g, 'oe')
+    .replace(/Œ/g, 'OE')
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/[^\x20-\x7E]/g, '');
+}
+
+function escapePdfText(text) {
+  return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
 function hardReset() {
   const ok = confirm('Réinitialiser complètement la session ?');
   if (!ok) return;
@@ -706,6 +946,97 @@ function renderQueue(listEl, items, emptyMessage, formatter = (x) => x.name || x
 function setIdentityBadge(el, student) {
   el.classList.toggle('ok', !!student?.idChecked);
   el.textContent = student?.idChecked ? 'Carte d\'identité vérifiée' : 'Carte d\'identité non cochée';
+}
+
+function defaultEvaluation(student = state.roles.current) {
+  return {
+    studentName: student?.name || '',
+    caseTitle: student?.caseTitle || '',
+    sessionName: 'UI10-S6',
+    startedAt: new Date().toISOString(),
+    criteria: Object.fromEntries(EVALUATION_CRITERIA.map(item => [item.id, { score: '', comment: '' }])),
+    positivePoints: '',
+    improvementAreas: '',
+    lowScoreComment: ''
+  };
+}
+
+function ensureCurrentEvaluation() {
+  const current = state.roles.current;
+  if (!current) return;
+  const samePassage = state.currentEvaluation
+    && state.currentEvaluation.studentName === current.name
+    && state.currentEvaluation.caseTitle === (current.caseTitle || '');
+  if (!samePassage) {
+    state.currentEvaluation = defaultEvaluation(current);
+  }
+}
+
+function getEvaluationScore() {
+  const evaluation = state.currentEvaluation;
+  if (!evaluation) return 0;
+  return EVALUATION_CRITERIA.reduce((total, item) => {
+    const value = parseFloat(evaluation.criteria?.[item.id]?.score || '0');
+    return total + (Number.isFinite(value) ? value : 0);
+  }, 0);
+}
+
+function renderEvaluationForm() {
+  const evaluation = state.currentEvaluation;
+  const visible = !!(state.roles.current && evaluation);
+  els.evaluationPanel.classList.toggle('hidden', !visible);
+  els.submitExamBtn.disabled = !visible;
+  if (!visible) return;
+  evaluation.criteria = evaluation.criteria || {};
+
+  els.evaluationMeta.textContent = `${evaluation.studentName || 'Étudiant'} - ${evaluation.caseTitle || 'Cas non renseigné'}`;
+  els.evaluationScore.textContent = `${formatScore(getEvaluationScore())}/20`;
+  if (!els.evaluationItems.dataset.ready) {
+    els.evaluationItems.innerHTML = EVALUATION_CRITERIA.map(item => `
+      <div class="eval-item">
+        <h4>${item.label}</h4>
+        <select data-eval-score="${item.id}">
+          ${EVALUATION_LEVELS.map(level => `<option value="${level.value}">${level.label}</option>`).join('')}
+        </select>
+        <textarea data-eval-comment="${item.id}" placeholder="Commentaire pour ce critère"></textarea>
+      </div>
+    `).join('');
+    els.evaluationItems.dataset.ready = 'true';
+    els.evaluationItems.querySelectorAll('[data-eval-score]').forEach(select => {
+      select.addEventListener('change', updateEvaluationFromForm);
+    });
+    els.evaluationItems.querySelectorAll('[data-eval-comment]').forEach(textarea => {
+      textarea.addEventListener('input', updateEvaluationFromForm);
+    });
+  }
+  EVALUATION_CRITERIA.forEach(item => {
+    const criterion = evaluation.criteria?.[item.id] || { score: '', comment: '' };
+    els.evaluationItems.querySelector(`[data-eval-score="${item.id}"]`).value = criterion.score;
+    els.evaluationItems.querySelector(`[data-eval-comment="${item.id}"]`).value = criterion.comment;
+  });
+  if (document.activeElement !== els.positivePoints) els.positivePoints.value = evaluation.positivePoints || '';
+  if (document.activeElement !== els.improvementAreas) els.improvementAreas.value = evaluation.improvementAreas || '';
+  if (document.activeElement !== els.lowScoreComment) els.lowScoreComment.value = evaluation.lowScoreComment || '';
+}
+
+function updateEvaluationFromForm() {
+  if (!state.currentEvaluation) return;
+  state.currentEvaluation.criteria = state.currentEvaluation.criteria || {};
+  EVALUATION_CRITERIA.forEach(item => {
+    state.currentEvaluation.criteria[item.id] = {
+      score: els.evaluationItems.querySelector(`[data-eval-score="${item.id}"]`).value,
+      comment: els.evaluationItems.querySelector(`[data-eval-comment="${item.id}"]`).value
+    };
+  });
+  state.currentEvaluation.positivePoints = els.positivePoints.value;
+  state.currentEvaluation.improvementAreas = els.improvementAreas.value;
+  state.currentEvaluation.lowScoreComment = els.lowScoreComment.value;
+  els.evaluationScore.textContent = `${formatScore(getEvaluationScore())}/20`;
+  saveState(true);
+}
+
+function formatScore(score) {
+  return Number(score).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 }
 
 function renderBootstrapPanel() {
@@ -777,6 +1108,7 @@ function renderMainRoles() {
 
   els.nextTurnBtn.disabled = !current;
   els.swapBootstrapBtn.disabled = !state.awaitingBootstrapSwap;
+  els.pauseEvaluationsBtn.disabled = state.phase !== 'live';
 }
 
 function renderOverview() {
@@ -824,6 +1156,7 @@ function render() {
   renderBootstrapPanel();
   renderMainRoles();
   renderOverview();
+  renderEvaluationForm();
   updateBackupButton();
 }
 
@@ -897,10 +1230,15 @@ els.resetNextPrepTimerBtn.addEventListener('click', () => resetTimer('nextPrep')
 els.startCurrentTimerBtn.addEventListener('click', () => startTimer('current'));
 els.pauseCurrentTimerBtn.addEventListener('click', () => stopTimer('current'));
 els.resetCurrentTimerBtn.addEventListener('click', () => resetTimer('current'));
+els.submitExamBtn.addEventListener('click', submitExamPdf);
+els.positivePoints.addEventListener('input', updateEvaluationFromForm);
+els.improvementAreas.addEventListener('input', updateEvaluationFromForm);
+els.lowScoreComment.addEventListener('input', updateEvaluationFromForm);
 
 els.nextTurnBtn.addEventListener('click', rotateTurn);
 els.swapBootstrapBtn.addEventListener('click', swapInitialRoles);
 els.restoreCasesBtn.addEventListener('click', recalculateUrn);
+els.pauseEvaluationsBtn.addEventListener('click', pauseEvaluations);
 els.downloadSessionBtn.addEventListener('click', exportSession);
 
 els.confirmDrawBtn.addEventListener('click', confirmDraw);

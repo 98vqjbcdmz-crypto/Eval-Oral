@@ -428,6 +428,67 @@
     .timer.finished .timer-value { color: var(--danger); }
     .timer.warning .timer-value { color: var(--warn); }
 
+    .evaluation-card {
+      grid-column: 1 / -1;
+    }
+
+    .evaluation-grid,
+    .synthesis-grid {
+      display: grid;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .evaluation-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .synthesis-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top: 14px;
+    }
+
+    .eval-item {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fbfdff;
+      padding: 14px;
+    }
+
+    .eval-item h4 {
+      margin: 0 0 10px;
+      color: var(--accent);
+    }
+
+    .eval-item select,
+    .eval-item textarea,
+    .synthesis-grid textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--text);
+      resize: vertical;
+    }
+
+    .eval-item textarea {
+      min-height: 86px;
+      margin-top: 10px;
+    }
+
+    .synthesis-grid textarea {
+      min-height: 96px;
+    }
+
+    .score-display {
+      font-size: clamp(2rem, 3vw, 3.2rem);
+      font-weight: 900;
+      color: var(--accent);
+      line-height: 1;
+    }
+
     .prep-actions,
     .card-actions {
       margin-top: auto;
@@ -593,7 +654,9 @@
         grid-template-columns: 1fr;
       }
       .dashboard,
-      .initial-grid {
+      .initial-grid,
+      .evaluation-grid,
+      .synthesis-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -738,6 +801,35 @@
               <button id="startCurrentTimerBtn" class="btn-primary">Démarrer</button>
               <button id="pauseCurrentTimerBtn" class="btn-secondary">Pause</button>
               <button id="resetCurrentTimerBtn" class="btn-warning">Remettre à 10 min</button>
+              <button id="submitExamBtn" class="btn-success">Soumettre fiche PDF</button>
+            </div>
+          </article>
+
+          <article id="evaluationPanel" class="card evaluation-card hidden">
+            <div class="card-head">
+              <div>
+                <div class="card-title">Fiche d'évaluation du passage</div>
+                <div id="evaluationMeta" class="hint">Lance le minuteur oral pour ouvrir la fiche.</div>
+              </div>
+              <div>
+                <div class="mini-label">Note automatique</div>
+                <div id="evaluationScore" class="score-display">0/20</div>
+              </div>
+            </div>
+            <div id="evaluationItems" class="evaluation-grid"></div>
+            <div class="synthesis-grid">
+              <div>
+                <label for="positivePoints" class="mini-label">Points positifs de l'étudiant</label>
+                <textarea id="positivePoints"></textarea>
+              </div>
+              <div>
+                <label for="improvementAreas" class="mini-label">Axes d'amélioration</label>
+                <textarea id="improvementAreas"></textarea>
+              </div>
+              <div>
+                <label for="lowScoreComment" class="mini-label">Commentaire si note &lt; 10</label>
+                <textarea id="lowScoreComment"></textarea>
+              </div>
             </div>
           </article>
 
@@ -810,6 +902,7 @@
             <div id="nextStudentPreview" class="case-box">—</div>
             <div class="card-actions">
               <button id="restoreCasesBtn" class="btn-secondary">Recalculer l'urne</button>
+              <button id="pauseEvaluationsBtn" class="btn-secondary">Pause des évaluations</button>
               <button id="downloadSessionBtn" class="btn-warning">Exporter la session</button>
             </div>
           </article>
