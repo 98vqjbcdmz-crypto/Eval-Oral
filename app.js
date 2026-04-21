@@ -19,11 +19,13 @@ const initialState = () => ({
   roles: {
     current: null,
     prep: null,
+    nextPrep: null,
     patient: null
   },
   timers: {
     current: { duration: 600, remaining: 600, running: false, finished: false },
     prep: { duration: 900, remaining: 900, running: false, finished: false },
+    nextPrep: { duration: 900, remaining: 900, running: false, finished: false },
     bootA: { duration: 900, remaining: 900, running: false, finished: false },
     bootB: { duration: 900, remaining: 900, running: false, finished: false }
   },
@@ -93,6 +95,19 @@ const els = {
   startPrepTimerBtn: document.getElementById('startPrepTimerBtn'),
   pausePrepTimerBtn: document.getElementById('pausePrepTimerBtn'),
   resetPrepTimerBtn: document.getElementById('resetPrepTimerBtn'),
+  nextPrepPanel: document.getElementById('nextPrepPanel'),
+  nextPrepName: document.getElementById('nextPrepName'),
+  nextPrepCase: document.getElementById('nextPrepCase'),
+  nextPrepIdentityBadge: document.getElementById('nextPrepIdentityBadge'),
+  nextPrepIdCheckbox: document.getElementById('nextPrepIdCheckbox'),
+  nextPrepTimerBlock: document.getElementById('nextPrepTimerBlock'),
+  nextPrepTimerValue: document.getElementById('nextPrepTimerValue'),
+  nextPrepTimerBar: document.getElementById('nextPrepTimerBar'),
+  enterNextPrepBtn: document.getElementById('enterNextPrepBtn'),
+  drawNextPrepBtn: document.getElementById('drawNextPrepBtn'),
+  startNextPrepTimerBtn: document.getElementById('startNextPrepTimerBtn'),
+  pauseNextPrepTimerBtn: document.getElementById('pauseNextPrepTimerBtn'),
+  resetNextPrepTimerBtn: document.getElementById('resetNextPrepTimerBtn'),
   patientName: document.getElementById('patientName'),
   patientNote: document.getElementById('patientNote'),
   nextTurnBtn: document.getElementById('nextTurnBtn'),
@@ -151,7 +166,7 @@ function loadState() {
     const parsed = JSON.parse(raw);
     state = Object.assign(initialState(), parsed);
     state.bootstrap = Object.assign({ A: null, B: null }, state.bootstrap || {});
-    state.roles = Object.assign({ current: null, prep: null, patient: null }, state.roles || {});
+    state.roles = Object.assign({ current: null, prep: null, nextPrep: null, patient: null }, state.roles || {});
     state.timers = Object.assign(initialState().timers, state.timers || {});
     state.drawPreview = state.drawPreview || null;
     if (typeof state.awaitingBootstrapSwap !== 'boolean') {
@@ -250,6 +265,7 @@ function timerLabel(key) {
   return ({
     current: 'oral en cours',
     prep: 'préparation en cours',
+    nextPrep: 'préparation suivante',
     bootA: 'préparation étudiant A',
     bootB: 'préparation étudiant B'
   })[key] || key;
@@ -278,6 +294,7 @@ function getStudentByTarget(target) {
   if (target === 'bootstrapA') return state.bootstrap.A;
   if (target === 'bootstrapB') return state.bootstrap.B;
   if (target === 'prep') return state.roles.prep;
+  if (target === 'nextPrep') return state.roles.nextPrep;
   return null;
 }
 
@@ -495,6 +512,27 @@ function swapInitialRoles() {
   showToast(`Passage basculé : ${state.roles.current.name} passe maintenant. L'étudiant en préparation conserve son temps restant.`);
 }
 
+function enterNextPrep() {
+  if (state.phase !== 'live') {
+    alert('L’entrée suivante est disponible après le lancement du premier oral.');
+    return;
+  }
+  if (state.roles.nextPrep) {
+    alert('Un étudiant suivant est déjà entré en préparation.');
+    return;
+  }
+  if (!state.queue.length) {
+    alert('Aucun étudiant en attente.');
+    return;
+  }
+  state.roles.nextPrep = state.queue.shift();
+  resetTimer('nextPrep', true);
+  syncAvailableCases();
+  render();
+  saveState();
+  showToast(`${state.roles.nextPrep.name} entre en préparation. Le chrono du préparant actuel continue.`);
+}
+
 function rotateTurn() {
   if (!state.roles.current) {
     alert('Aucun oral en cours.');
@@ -530,15 +568,30 @@ function rotateTurn() {
     return;
   }
 
+  const nextPrep = state.roles.nextPrep ? clone(state.roles.nextPrep) : null;
+  const nextPrepTimer = clone(state.timers.nextPrep);
+  const nextPrepWasRunning = !!state.timers.nextPrep?.running;
+
   state.roles.patient = previousCurrent;
   state.roles.current = previousPrep;
-  state.roles.prep = state.queue.length ? state.queue.shift() : null;
+  state.roles.prep = nextPrep || (state.queue.length ? state.queue.shift() : null);
+  state.roles.nextPrep = null;
 
+  stopTimer('nextPrep', true);
   resetTimer('current', true);
-  resetTimer('prep', true);
+  if (nextPrep) {
+    state.timers.prep = nextPrepTimer;
+    state.timers.prep.running = false;
+  } else {
+    resetTimer('prep', true);
+  }
+  resetTimer('nextPrep', true);
   syncAvailableCases();
   render();
   saveState();
+  if (nextPrep && nextPrepWasRunning) {
+    startTimer('prep');
+  }
   showToast(leavingStudent
     ? `${leavingStudent.name} sort de la salle. Le cas du passage terminé revient dans l'urne.`
     : 'Rotation effectuée.');
@@ -619,6 +672,7 @@ function renderBootstrapPanel() {
 function renderMainRoles() {
   const current = state.roles.current;
   const prep = state.roles.prep;
+  const nextPrep = state.roles.nextPrep;
   const patient = state.roles.patient;
 
   els.currentName.textContent = current?.name || 'Aucun oral lancé';
@@ -633,6 +687,18 @@ function renderMainRoles() {
   els.prepIdCheckbox.disabled = !prep;
   els.drawPrepBtn.disabled = !prep || !prep.idChecked || !!prep.caseTitle;
   applyTimerVisual(state.timers.prep, els.prepTimerBlock, els.prepTimerValue, els.prepTimerBar);
+
+  els.nextPrepName.textContent = nextPrep?.name || '—';
+  els.nextPrepCase.textContent = nextPrep?.caseTitle || 'Aucun étudiant entré pour le moment.';
+  setIdentityBadge(els.nextPrepIdentityBadge, nextPrep);
+  els.nextPrepIdCheckbox.checked = !!nextPrep?.idChecked;
+  els.nextPrepIdCheckbox.disabled = !nextPrep;
+  els.enterNextPrepBtn.disabled = state.phase !== 'live' || !!nextPrep || !state.queue.length;
+  els.drawNextPrepBtn.disabled = !nextPrep || !nextPrep.idChecked || !!nextPrep.caseTitle;
+  els.startNextPrepTimerBtn.disabled = !nextPrep;
+  els.pauseNextPrepTimerBtn.disabled = !nextPrep;
+  els.resetNextPrepTimerBtn.disabled = !nextPrep;
+  applyTimerVisual(state.timers.nextPrep, els.nextPrepTimerBlock, els.nextPrepTimerValue, els.nextPrepTimerBar);
 
   els.patientName.textContent = patient?.name || '—';
   els.patientNote.textContent = patient
@@ -654,11 +720,13 @@ function renderOverview() {
     const current = state.roles.current?.name || '—';
     const patient = state.roles.patient?.name || '—';
     const prep = state.roles.prep?.name || 'aucun étudiant';
-    els.overviewStatus.textContent = `Premier oral : ${current} passe, ${patient} fait le patient, ${prep} prépare. Après ce passage, faites passer l'autre étudiant du binôme initial.`;
+    const nextPrep = state.roles.nextPrep?.name;
+    els.overviewStatus.textContent = `Premier oral : ${current} passe, ${patient} fait le patient, ${prep} prépare${nextPrep ? `, ${nextPrep} est aussi entré en préparation` : ''}. Après ce passage, faites passer l'autre étudiant du binôme initial.`;
   } else if (state.phase === 'live') {
     const current = state.roles.current?.name || '—';
     const prep = state.roles.prep?.name || 'aucun étudiant';
-    els.overviewStatus.textContent = `Oral en cours : ${current}. Préparation parallèle : ${prep}. Le tirage exclut seulement le cas du passage en cours.`;
+    const nextPrep = state.roles.nextPrep?.name;
+    els.overviewStatus.textContent = `Oral en cours : ${current}. Préparation parallèle : ${prep}${nextPrep ? `. Préparation suivante : ${nextPrep}` : ''}. Le tirage exclut seulement le cas du passage en cours.`;
   }
 
   els.casesLeft.textContent = state.availableCases.length;
@@ -741,6 +809,19 @@ els.startPrepTimerBtn.addEventListener('click', () => startTimer('prep'));
 els.pausePrepTimerBtn.addEventListener('click', () => stopTimer('prep'));
 els.resetPrepTimerBtn.addEventListener('click', () => resetTimer('prep'));
 
+els.enterNextPrepBtn.addEventListener('click', enterNextPrep);
+els.nextPrepIdCheckbox.addEventListener('change', () => {
+  if (state.roles.nextPrep) {
+    state.roles.nextPrep.idChecked = els.nextPrepIdCheckbox.checked;
+  }
+  render();
+  saveState();
+});
+els.drawNextPrepBtn.addEventListener('click', () => drawCaseFor('nextPrep'));
+els.startNextPrepTimerBtn.addEventListener('click', () => startTimer('nextPrep'));
+els.pauseNextPrepTimerBtn.addEventListener('click', () => stopTimer('nextPrep'));
+els.resetNextPrepTimerBtn.addEventListener('click', () => resetTimer('nextPrep'));
+
 els.startCurrentTimerBtn.addEventListener('click', () => startTimer('current'));
 els.pauseCurrentTimerBtn.addEventListener('click', () => stopTimer('current'));
 els.resetCurrentTimerBtn.addEventListener('click', () => resetTimer('current'));
@@ -770,7 +851,7 @@ loadState();
 updateClock();
 setInterval(updateClock, 1000);
 
-['current', 'prep', 'bootA', 'bootB'].forEach(key => {
+['current', 'prep', 'nextPrep', 'bootA', 'bootB'].forEach(key => {
   if (state.timers[key]?.running) {
     startTimer(key);
   }

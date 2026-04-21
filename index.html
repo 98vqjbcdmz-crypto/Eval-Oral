@@ -378,6 +378,28 @@
       z-index: 1;
     }
 
+    .next-prep-panel {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fbfdff;
+      position: relative;
+      z-index: 1;
+    }
+
+    .next-prep-panel .name {
+      font-size: clamp(1.05rem, 1.4vw, 1.35rem);
+    }
+
+    .next-prep-panel .case-box {
+      min-height: 70px;
+    }
+
+    .next-prep-panel .timer-value {
+      font-size: clamp(1.8rem, 2.4vw, 2.5rem);
+    }
+
     .timer-value {
       font-size: clamp(2rem, 3vw, 3.25rem);
       line-height: 1;
@@ -738,6 +760,26 @@
               <button id="startPrepTimerBtn" class="btn-primary">Démarrer</button>
               <button id="pausePrepTimerBtn" class="btn-secondary">Pause</button>
               <button id="resetPrepTimerBtn" class="btn-warning">Remettre à 15 min</button>
+            </div>
+            <div id="nextPrepPanel" class="next-prep-panel">
+              <div class="mini-label">Étudiant suivant en préparation</div>
+              <div id="nextPrepName" class="name">—</div>
+              <div id="nextPrepCase" class="case-box">Aucun étudiant entré pour le moment.</div>
+              <div id="nextPrepIdentityBadge" class="identity-badge">Carte d'identité non cochée</div>
+              <label class="checkbox" style="margin-top: 10px;"><input id="nextPrepIdCheckbox" type="checkbox"> Carte d'identité montrée</label>
+              <div id="nextPrepTimerBlock" class="timer">
+                <div class="mini-label">Minuteur préparation suivante</div>
+                <div id="nextPrepTimerValue" class="timer-value">15:00</div>
+                <div class="timer-progress"><div id="nextPrepTimerBar"></div></div>
+              </div>
+              <div class="prep-actions">
+                <button id="enterNextPrepBtn" class="btn-dark">Faire entrer le prochain</button>
+                <button id="drawNextPrepBtn" class="btn-success">Tirage au sort</button>
+                <button id="startNextPrepTimerBtn" class="btn-primary">Démarrer</button>
+                <button id="pauseNextPrepTimerBtn" class="btn-secondary">Pause</button>
+                <button id="resetNextPrepTimerBtn" class="btn-warning">Remettre à 15 min</button>
+              </div>
+              <div class="hint">Cette entrée ne modifie pas le chrono du préparant principal.</div>
             </div>
           </article>
 
