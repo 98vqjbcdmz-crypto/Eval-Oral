@@ -345,6 +345,13 @@ function getStudentByTarget(target) {
 
 function getUrnCases(target = null) {
   const targetStudent = typeof target === 'string' ? getStudentByTarget(target) : target;
+  if (state.phase === 'bootstrap') {
+    const bootstrapCases = [state.bootstrap.A, state.bootstrap.B]
+      .filter(student => student && student !== targetStudent)
+      .map(student => student.caseTitle)
+      .filter(Boolean);
+    return state.originalCases.filter(caseTitle => !bootstrapCases.includes(caseTitle));
+  }
   const currentCase = state.phase === 'live' ? state.roles.current?.caseTitle : null;
   if (!currentCase || targetStudent === state.roles.current) {
     return clone(state.originalCases);
@@ -354,9 +361,13 @@ function getUrnCases(target = null) {
 
 function syncAvailableCases() {
   state.availableCases = clone(getUrnCases());
-  state.usedCases = state.phase === 'live' && state.roles.current?.caseTitle
-    ? [state.roles.current.caseTitle]
-    : [];
+  if (state.phase === 'bootstrap') {
+    state.usedCases = [state.bootstrap.A?.caseTitle, state.bootstrap.B?.caseTitle].filter(Boolean);
+  } else {
+    state.usedCases = state.phase === 'live' && state.roles.current?.caseTitle
+      ? [state.roles.current.caseTitle]
+      : [];
+  }
 }
 
 function recalculateUrn() {
@@ -711,7 +722,15 @@ function renderBootstrapPanel() {
   applyTimerVisual(state.timers.bootA, els.bootATimerBlock, els.bootATimerValue, els.bootATimerBar);
   applyTimerVisual(state.timers.bootB, els.bootBTimerBlock, els.bootBTimerValue, els.bootBTimerBar);
 
-  const readyToStart = state.bootstrap.A && state.bootstrap.B;
+  els.startWithABtn.textContent = `${state.bootstrap.A.name} passe / ${state.bootstrap.B.name} fait le patient`;
+  els.startWithBBtn.textContent = `${state.bootstrap.B.name} passe / ${state.bootstrap.A.name} fait le patient`;
+
+  const readyToStart = !!(
+    state.bootstrap.A?.idChecked &&
+    state.bootstrap.B?.idChecked &&
+    state.bootstrap.A?.caseTitle &&
+    state.bootstrap.B?.caseTitle
+  );
   els.startWithABtn.disabled = !readyToStart;
   els.startWithBBtn.disabled = !readyToStart;
 }

@@ -541,7 +541,7 @@
       const B = state.bootstrap?.B || null;
       const next = state.queue?.[0] || null;
 
-      els.c1Title.textContent = 'Étudiant A';
+      els.c1Title.textContent = '1er étudiant du binôme';
       els.c1Tag.textContent = 'préparation';
       els.c1Name.textContent = A?.name || '—';
       setCaseText(els.c1Case, A?.caseTitle || 'En attente de tirage.');
@@ -549,7 +549,7 @@
       setIdentity(els.c1Identity, A);
       setTimerVisual(els.c1Timer, els.c1TimerValue, els.c1TimerBar, state.timers?.bootA);
 
-      els.c2Title.textContent = 'Étudiant B';
+      els.c2Title.textContent = '2e étudiant du binôme';
       els.c2Tag.textContent = 'préparation';
       els.c2Name.textContent = B?.name || '—';
       setCaseText(els.c2Case, B?.caseTitle || 'En attente de tirage.');
