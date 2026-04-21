@@ -394,11 +394,50 @@ function updateRunningTimers() {
 
 function buildStudent(name) {
   return {
+    type: 'student',
     name,
     caseTitle: null,
     idChecked: false,
     hasPassed: false
   };
+}
+
+function buildPauseMarker(label = 'Pause') {
+  return {
+    type: 'pause',
+    name: label
+  };
+}
+
+function isPauseLine(value) {
+  return String(value || '').trim().toLowerCase() === 'pause';
+}
+
+function isPauseMarker(item) {
+  return item?.type === 'pause' || isPauseLine(item?.name);
+}
+
+function buildQueueItem(line) {
+  return isPauseLine(line) ? buildPauseMarker(line) : buildStudent(line);
+}
+
+function shiftNextStudent() {
+  if (state.queue.length && isPauseMarker(state.queue[0])) return null;
+  return state.queue.shift() || null;
+}
+
+function countQueuedStudents(items = state.queue) {
+  return items.filter(item => !isPauseMarker(item)).length;
+}
+
+function nextQueueLabel() {
+  const next = state.queue[0];
+  if (!next) return '';
+  return isPauseMarker(next) ? 'Pause évaluateur planifiée' : next.name;
+}
+
+function canEnterNextStudent() {
+  return !!state.queue.length && !isPauseMarker(state.queue[0]);
 }
 
 function getStudentByTarget(target) {
@@ -450,7 +489,8 @@ function pauseEvaluations() {
   }
   const ok = confirm('Mettre en pause les évaluations et repartir ensuite avec deux étudiants en préparation, comme au démarrage ? Terminez le passage en cours avant de l’utiliser.');
   if (!ok) return;
-  const candidates = [state.roles.prep, state.roles.nextPrep, ...state.queue].filter(Boolean);
+  const candidates = [state.roles.prep, state.roles.nextPrep, ...state.queue]
+    .filter(item => item && !isPauseMarker(item));
   if (candidates.length < 2) {
     alert('Il faut au moins deux étudiants restants pour relancer un binôme de préparation après la pause.');
     return;
@@ -471,6 +511,35 @@ function pauseEvaluations() {
   render();
   saveState();
   showToast('Pause évaluateur activée. Reprise avec deux étudiants en préparation.');
+}
+
+function resumeBootstrapAfterPause() {
+  const candidates = [state.roles.prep, state.roles.nextPrep, ...state.queue]
+    .filter(item => item && !isPauseMarker(item));
+  if (candidates.length < 2) return false;
+  Object.keys(intervals).forEach(key => stopTimer(key));
+  state.phase = 'bootstrap';
+  state.bootstrap.A = candidates.shift();
+  state.bootstrap.B = candidates.shift();
+  state.queue = candidates;
+  state.roles.current = null;
+  state.roles.patient = null;
+  state.roles.prep = null;
+  state.roles.nextPrep = null;
+  state.currentEvaluation = null;
+  state.awaitingBootstrapSwap = false;
+  ['current', 'prep', 'nextPrep', 'bootA', 'bootB'].forEach(key => resetTimer(key, true));
+  syncAvailableCases();
+  render();
+  saveState();
+  showToast('Pause planifiée atteinte. Reprise avec deux étudiants en préparation.');
+  return true;
+}
+
+function consumeScheduledPauseAndResume() {
+  if (!state.queue.length || !isPauseMarker(state.queue[0])) return false;
+  state.queue.shift();
+  return resumeBootstrapAfterPause();
 }
 
 function drawCaseFor(target) {
@@ -574,8 +643,12 @@ function loadSessionFromInputs() {
   const students = normalizeLines(els.studentsInput.value);
   const cases = normalizeLines(els.casesInput.value);
 
-  if (students.length < 2) {
+  if (students.filter(line => !isPauseLine(line)).length < 2) {
     alert('Il faut au moins 2 étudiants pour démarrer le premier binôme.');
+    return;
+  }
+  if (students.slice(0, 2).some(isPauseLine)) {
+    alert('Place la première ligne PAUSE après les deux premiers étudiants du binôme de démarrage.');
     return;
   }
   if (cases.length < 1) {
@@ -587,12 +660,12 @@ function loadSessionFromInputs() {
   state = initialState();
   state.config.studentsRaw = els.studentsInput.value.trim();
   state.config.casesRaw = els.casesInput.value.trim();
-  state.queue = students.map(buildStudent);
+  state.queue = students.map(buildQueueItem);
   state.originalCases = clone(cases);
   state.sessionLoadedAt = new Date().toISOString();
   state.phase = 'bootstrap';
-  state.bootstrap.A = state.queue.shift() || null;
-  state.bootstrap.B = state.queue.shift() || null;
+  state.bootstrap.A = shiftNextStudent();
+  state.bootstrap.B = shiftNextStudent();
   syncAvailableCases();
   render();
   saveState();
@@ -617,7 +690,7 @@ function startLive(firstCurrentKey) {
 
   state.roles.current = clone(current);
   state.roles.patient = clone(patient);
-  state.roles.prep = state.queue.length ? state.queue.shift() : null;
+  state.roles.prep = shiftNextStudent();
   state.phase = 'live';
   state.awaitingBootstrapSwap = true;
   resetTimer('current', true);
@@ -675,11 +748,11 @@ function enterNextPrep() {
     alert('Un étudiant suivant est déjà entré en préparation.');
     return;
   }
-  if (!state.queue.length) {
+  if (!canEnterNextStudent()) {
     alert('Aucun étudiant en attente.');
     return;
   }
-  state.roles.nextPrep = state.queue.shift();
+  state.roles.nextPrep = shiftNextStudent();
   resetTimer('nextPrep', true);
   syncAvailableCases();
   render();
@@ -716,6 +789,7 @@ function rotateTurn() {
     syncAvailableCases();
     render();
     saveState();
+    if (consumeScheduledPauseAndResume()) return;
     showToast(leavingStudent
       ? `${leavingStudent.name} sort de la salle. Le cas du passage terminé revient dans l'urne.`
       : 'Dernier passage clôturé.');
@@ -725,10 +799,9 @@ function rotateTurn() {
   const nextPrep = state.roles.nextPrep ? clone(state.roles.nextPrep) : null;
   const nextPrepTimer = clone(state.timers.nextPrep);
   const nextPrepWasRunning = !!state.timers.nextPrep?.running;
-
   state.roles.patient = previousCurrent;
   state.roles.current = previousPrep;
-  state.roles.prep = nextPrep || (state.queue.length ? state.queue.shift() : null);
+  state.roles.prep = nextPrep || shiftNextStudent();
   state.roles.nextPrep = null;
 
   stopTimer('nextPrep');
@@ -1275,7 +1348,7 @@ function renderMainRoles() {
   setIdentityBadge(els.nextPrepIdentityBadge, nextPrep);
   els.nextPrepIdCheckbox.checked = !!nextPrep?.idChecked;
   els.nextPrepIdCheckbox.disabled = !nextPrep;
-  els.enterNextPrepBtn.disabled = state.phase !== 'live' || !!nextPrep || !state.queue.length;
+  els.enterNextPrepBtn.disabled = state.phase !== 'live' || !!nextPrep || !canEnterNextStudent();
   els.drawNextPrepBtn.disabled = !nextPrep || !nextPrep.idChecked || !!nextPrep.caseTitle;
   els.startNextPrepTimerBtn.disabled = !nextPrep;
   els.pauseNextPrepTimerBtn.disabled = !nextPrep;
@@ -1314,8 +1387,8 @@ function renderOverview() {
   }
 
   els.casesLeft.textContent = state.availableCases.length;
-  els.nextStudentPreview.textContent = state.queue[0]?.name || 'Aucun autre étudiant en attente.';
-  renderQueue(els.queueList, state.queue, 'Aucun étudiant en attente.');
+  els.nextStudentPreview.textContent = nextQueueLabel() || 'Aucun autre étudiant en attente.';
+  renderQueue(els.queueList, state.queue, 'Aucun étudiant en attente.', item => isPauseMarker(item) ? 'PAUSE ÉVALUATEUR' : item.name);
   renderQueue(
     els.historyList,
     state.history,
