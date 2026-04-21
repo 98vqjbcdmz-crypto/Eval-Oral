@@ -997,7 +997,7 @@ function hardReset() {
   showToast('Session réinitialisée. Une sauvegarde de secours a été conservée.');
 }
 
-function renderQueue(listEl, items, emptyMessage, formatter = (x) => x.name || x) {
+function renderQueue(listEl, items, emptyMessage, formatter = (x) => x.name || x, onClick = null) {
   listEl.innerHTML = '';
   if (!items.length) {
     const empty = document.createElement('div');
@@ -1007,9 +1007,13 @@ function renderQueue(listEl, items, emptyMessage, formatter = (x) => x.name || x
     return;
   }
   items.forEach(item => {
-    const pill = document.createElement('div');
-    pill.className = 'pill';
+    const pill = document.createElement(onClick ? 'button' : 'div');
+    pill.className = onClick ? 'pill history-item' : 'pill';
+    if (onClick) pill.type = 'button';
     pill.textContent = formatter(item);
+    if (onClick) {
+      pill.addEventListener('click', () => onClick(item));
+    }
     listEl.appendChild(pill);
   });
 }
@@ -1108,6 +1112,112 @@ function updateEvaluationFromForm() {
 
 function formatScore(score) {
   return Number(score).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+}
+
+function findEvaluationForHistory(historyItem) {
+  if (historyItem.evaluation) return historyItem.evaluation;
+  return (state.submittedEvaluations || []).find(item =>
+    item.studentName === historyItem.name && item.caseTitle === historyItem.caseTitle
+  ) || null;
+}
+
+function findEvaluationScoreForHistory(historyItem) {
+  const evaluation = findEvaluationForHistory(historyItem);
+  if (!evaluation) return 0;
+  if (Number.isFinite(Number(evaluation.score))) return Number(evaluation.score);
+  return EVALUATION_CRITERIA.reduce((total, item) => {
+    const value = parseFloat(evaluation.criteria?.[item.id]?.score || '0');
+    return total + (Number.isFinite(value) ? value : 0);
+  }, 0);
+}
+
+function openHistoryResult(historyItem) {
+  const evaluation = findEvaluationForHistory(historyItem);
+  const score = findEvaluationScoreForHistory(historyItem);
+  const win = window.open('', '_blank', 'noopener,noreferrer,width=900,height=900');
+  if (!win) {
+    alert('Impossible d’ouvrir la fenêtre de résultat. Vérifiez le bloqueur de fenêtres.');
+    return;
+  }
+  const payload = evaluation ? encodeURIComponent(JSON.stringify({ evaluation, score })) : '';
+  win.document.write(buildHistoryResultHtml(historyItem, evaluation, score, payload));
+  win.document.close();
+}
+
+function buildHistoryResultHtml(historyItem, evaluation, score, payload) {
+  const criteriaHtml = evaluation
+    ? EVALUATION_CRITERIA.map(item => {
+      const criterion = evaluation.criteria?.[item.id] || {};
+      return `<section><h2>${escapeHtml(item.label)} - ${escapeHtml(criterion.score || 'non évalué')} / 5</h2><p>${escapeHtml(criterion.comment || 'Aucun commentaire.')}</p></section>`;
+    }).join('')
+    : '<p>Aucune fiche soumise pour ce passage.</p>';
+  const downloadScript = evaluation ? `
+    <script>
+      const payload = JSON.parse(decodeURIComponent('${payload}'));
+      ${createSimplePdf.toString()}
+      ${buildPdfContent.toString()}
+      ${wrapPdfLine.toString()}
+      ${chunkPdfLines.toString()}
+      ${toPdfLatin.toString()}
+      ${escapePdfText.toString()}
+      ${formatScore.toString()}
+      ${safeFilename.toString()}
+      const EVALUATION_CRITERIA = ${JSON.stringify(EVALUATION_CRITERIA)};
+      ${buildExamPdf.toString()}
+      ${buildExamFilename.toString()}
+      document.getElementById('download').addEventListener('click', () => {
+        const pdf = buildExamPdf(payload.evaluation, payload.score);
+        const blob = new Blob([pdf], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = buildExamFilename(payload.evaluation);
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    </script>` : '';
+  return `<!doctype html>
+    <html lang="fr">
+    <head>
+      <meta charset="utf-8">
+      <title>Résultat ${escapeHtml(historyItem.name || '')}</title>
+      <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 28px; color: #17324d; background: #f6f9fd; }
+        main { max-width: 920px; margin: 0 auto; background: #fff; border: 1px solid #dfe8f3; border-radius: 18px; padding: 24px; box-shadow: 0 14px 34px rgba(22,50,77,.1); }
+        h1 { margin-top: 0; }
+        h2 { color: #204f86; font-size: 1rem; margin-bottom: 8px; }
+        section { border-top: 1px solid #dfe8f3; padding-top: 14px; margin-top: 14px; }
+        .score { font-size: 2.8rem; font-weight: 900; color: #204f86; }
+        button { border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 800; background: #198754; color: white; cursor: pointer; }
+        .muted { color: #64788d; }
+      </style>
+    </head>
+    <body>
+      <main>
+        <h1>${escapeHtml(historyItem.name || 'Étudiant')}</h1>
+        <p class="muted">Cas clinique : ${escapeHtml(historyItem.caseTitle || 'Non renseigné')}</p>
+        <div class="score">${evaluation ? `${escapeHtml(formatScore(score))}/20` : '—'}</div>
+        ${evaluation ? '<button id="download">Télécharger la fiche PDF</button>' : ''}
+        ${criteriaHtml}
+        ${evaluation ? `
+          <section><h2>Points positifs</h2><p>${escapeHtml(evaluation.positivePoints || 'Aucun commentaire.')}</p></section>
+          <section><h2>Axes d'amélioration</h2><p>${escapeHtml(evaluation.improvementAreas || 'Aucun commentaire.')}</p></section>
+          <section><h2>Commentaire si note &lt; 10</h2><p>${escapeHtml(evaluation.lowScoreComment || 'Aucun commentaire.')}</p></section>
+        ` : ''}
+      </main>
+      ${downloadScript}
+    </body>
+    </html>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
 }
 
 function renderBootstrapPanel() {
@@ -1210,7 +1320,8 @@ function renderOverview() {
     els.historyList,
     state.history,
     'Aucun passage terminé pour le moment.',
-    item => `${item.name} — ${item.caseTitle}`
+    item => `${item.name} — ${item.caseTitle}${findEvaluationForHistory(item) ? ` — ${formatScore(findEvaluationScoreForHistory(item))}/20` : ' — fiche non soumise'}`,
+    openHistoryResult
   );
 }
 
