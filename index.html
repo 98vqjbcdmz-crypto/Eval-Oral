@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UI 10-S6 – Évaluations orales</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel-soft: #eef3fb;
+      --line: #d9e3f0;
+      --text: #17324d;
+      --muted: #5f748b;
+      --accent: #204f86;
+      --accent-2: #2e77c5;
+      --ok: #198754;
+      --warn: #d17b00;
+      --danger: #c0392b;
+      --shadow: 0 10px 24px rgba(22, 50, 77, 0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #f6f9fc 0%, #edf3fa 100%);
+    }
+
+    button, input, textarea {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 180px 1fr 220px;
+      gap: 18px;
+      align-items: center;
+      padding: 18px 22px 12px;
+    }
+
+    .logo-box,
+    .clock-box,
+    .title-box,
+    .panel,
+    .queue-box,
+    .footer-bar,
+    .modal-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .logo-box {
+      min-height: 102px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .logo-box img {
+      max-width: 100%;
+      max-height: 82px;
+      object-fit: contain;
+      display: none;
+    }
+
+    .logo-fallback {
+      width: 100%;
+      height: 82px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #f0f5fb 0%, #dfeaf7 100%);
+      border: 1px dashed #a6bfdc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1.15;
+    }
+
+    .logo-fallback small {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.76rem;
+      margin-top: 6px;
+      letter-spacing: 0;
+    }
+
+    .title-box {
+      min-height: 102px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .title-box h1 {
+      margin: 0;
+      font-size: clamp(1.15rem, 1.6vw, 1.65rem);
+      line-height: 1.25;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .title-box h2 {
+      margin: 8px 0 0;
+      font-size: clamp(1rem, 1.4vw, 1.25rem);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .clock-box {
+      min-height: 102px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .clock-box .label,
+    .mini-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .clock-box .time {
+      margin-top: 8px;
+      font-size: clamp(1.8rem, 3vw, 2.7rem);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .clock-box .date {
+      margin-top: 6px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 18px;
+      padding: 0 22px 18px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .left-column,
+    .right-column {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .panel {
+      padding: 18px;
+    }
+
+    .panel h3 {
+      margin: 0 0 14px;
+      font-size: 1.06rem;
+      letter-spacing: -0.01em;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      border: 1px solid #c6d6e9;
+      border-radius: 14px;
+      padding: 12px 14px;
+      resize: vertical;
+      min-height: 48px;
+      color: var(--text);
+      background: #fbfdff;
+    }
+
+    textarea {
+      min-height: 136px;
+    }
+
+    .hint {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: -2px;
+    }
+
+    .row,
+    .button-row,
+    .tiny-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.08s ease, opacity 0.2s ease, background 0.2s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      transform: none;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: #e9f1fb; color: var(--accent); }
+    .btn-success { background: var(--ok); color: #fff; }
+    .btn-warning { background: #fff4e2; color: #a65c00; }
+    .btn-danger { background: #fdecec; color: #9b2a21; }
+    .btn-dark { background: #24384f; color: #fff; }
+
+    .status-line {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      min-height: 0;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 140px;
+      height: 140px;
+      border-radius: 999px;
+      transform: translate(40%, -40%);
+      background: radial-gradient(circle, rgba(46,119,197,0.16), rgba(46,119,197,0));
+      pointer-events: none;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .tag {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.blue { background: #e8f1fb; color: var(--accent); }
+    .tag.green { background: #e8f7ef; color: #157347; }
+    .tag.gold { background: #fff5df; color: #a96a00; }
+    .tag.red { background: #fdebec; color: #b02a37; }
+
+    .identity-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      background: #f2f5f9;
+      color: var(--muted);
+      width: fit-content;
+      margin-top: 10px;
+    }
+
+    .identity-badge.ok {
+      background: #e8f7ef;
+      color: #157347;
+    }
+
+    .name {
+      font-size: clamp(1.35rem, 2vw, 2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 6px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .case-box {
+      background: #f8fbfe;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px 14px;
+      min-height: 92px;
+      line-height: 1.4;
+      position: relative;
+      z-index: 1;
+    }
+
+    .timer {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .timer-value {
+      font-size: clamp(2rem, 3vw, 3.25rem);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .timer-progress {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: #edf2f8;
+      overflow: hidden;
+      border: 1px solid #dde7f3;
+    }
+
+    .timer-progress > div {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent));
+      width: 100%;
+      transition: width 1s linear;
+    }
+
+    .timer.running .timer-value { color: var(--accent); }
+    .timer.finished .timer-value { color: var(--danger); }
+    .timer.warning .timer-value { color: var(--warn); }
+
+    .prep-actions,
+    .card-actions {
+      margin-top: auto;
+      padding-top: 14px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+
+    .patient-note,
+    .queue-box {
+      line-height: 1.45;
+    }
+
+    .queue-box {
+      padding: 16px 18px;
+      min-height: 110px;
+    }
+
+    .queue-box h4 {
+      margin: 0 0 12px;
+      font-size: 0.98rem;
+    }
+
+    .queue-list,
+    .history-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #eef3fa;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 0.86rem;
+      border: 1px solid #d8e3ef;
+    }
+
+    .footer-bar {
+      margin-top: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .initial-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .mini-card {
+      background: #f8fbfe;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .mini-card h4 {
+      margin: 0 0 10px;
+      font-size: 0.96rem;
+    }
+
+    .mini-name {
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      margin: 10px 0 0;
+    }
+
+    .checkbox input {
+      width: 18px;
+      height: 18px;
+    }
+
+    .empty-state {
+      padding: 22px;
+      border: 1px dashed #b7c9dd;
+      border-radius: 18px;
+      background: #f8fbfe;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .hidden { display: none !important; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 32, 52, 0.52);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+
+    .modal-card {
+      width: min(740px, 100%);
+      padding: 24px;
+      text-align: center;
+    }
+
+    .draw-stage {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .draw-target {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .draw-case {
+      min-height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: #f8fbfe;
+      padding: 18px;
+      font-size: clamp(1.1rem, 2vw, 1.45rem);
+      font-weight: 800;
+      line-height: 1.35;
+      margin-bottom: 16px;
+    }
+
+    .modal small {
+      display: block;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    @media (max-width: 1240px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+      .dashboard,
+      .initial-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .content,
+      .topbar {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+      .panel,
+      .card,
+      .queue-box,
+      .title-box,
+      .clock-box,
+      .logo-box {
+        border-radius: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="logo-box" aria-label="Logo IFMK">
+        <img id="logoImage" src="logo-ifmk.png" alt="Logo IFMK" />
+        <div id="logoFallback" class="logo-fallback">
+          IFMK<br/>Montpellier
+          <small>Ajoutez un fichier nommé <strong>logo-ifmk.png</strong> pour afficher le logo officiel</small>
+        </div>
+      </div>
+
+      <div class="title-box">
+        <h1>UI 10-S6 - Démarche et pratique clinique : élaboration du raisonnement professionnel et analyse réflexive</h1>
+        <h2>Évaluations orales</h2>
+      </div>
+
+      <div class="clock-box">
+        <div class="label">Heure</div>
+        <div id="clockTime" class="time">--:--:--</div>
+        <div id="clockDate" class="date">--</div>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="left-column">
+        <section class="panel">
+          <h3>Configuration rapide</h3>
+          <div class="field">
+            <label for="studentsInput">Étudiants (un nom par ligne)</label>
+            <textarea id="studentsInput" placeholder="Ex.&#10;Alice Martin&#10;Yanis Dupont&#10;Sarah Robert"></textarea>
+            <div class="hint">Le premier binôme sera constitué avec les 2 premiers noms.</div>
+          </div>
+
+          <div class="field">
+            <label for="casesInput">Cas cliniques (un cas par ligne)</label>
+            <textarea id="casesInput" placeholder="Ex.&#10;AVC hémisphère droit avec négligence&#10;Syndrome parkinsonien et freezing&#10;Chute chez personne âgée institutionnalisée"></textarea>
+            <div class="hint">Le tirage se fait sans remise tant que l'étudiant reste dans la salle. Le cas revient dans l'urne à sa sortie.</div>
+          </div>
+
+          <div class="button-row">
+            <button id="loadSessionBtn" class="btn-primary">Charger la session</button>
+            <button id="saveSessionBtn" class="btn-secondary">Sauvegarder</button>
+            <button id="resetAllBtn" class="btn-danger">Réinitialiser</button>
+          </div>
+        </section>
+
+        <section class="panel" id="initialPanel">
+          <h3>Démarrage du premier binôme</h3>
+          <div class="status-line" id="initialHelp">
+            Les 2 premiers étudiants préparent. Vérifiez l'identité, lancez leur tirage au sort, puis choisissez qui passe en premier.
+          </div>
+          <div id="initialEmpty" class="empty-state hidden">Charge d'abord une liste d'étudiants et de cas cliniques.</div>
+          <div id="initialReady" class="initial-grid hidden">
+            <div class="mini-card">
+              <h4>Étudiant A</h4>
+              <div id="bootAName" class="mini-name">—</div>
+              <div id="bootACase" class="case-box">Aucun cas tiré pour le moment.</div>
+              <label class="checkbox"><input id="bootAId" type="checkbox"> Carte d'identité vérifiée</label>
+              <div class="tiny-actions" style="margin-top: 12px;">
+                <button id="bootADrawBtn" class="btn-success">Tirer le cas</button>
+                <button id="bootAStartPrepBtn" class="btn-secondary">Lancer 15 min</button>
+              </div>
+              <div class="timer" id="bootATimerBlock">
+                <div class="mini-label">Minuteur préparation</div>
+                <div class="timer-value" id="bootATimerValue">15:00</div>
+                <div class="timer-progress"><div id="bootATimerBar"></div></div>
+              </div>
+            </div>
+
+            <div class="mini-card">
+              <h4>Étudiant B</h4>
+              <div id="bootBName" class="mini-name">—</div>
+              <div id="bootBCase" class="case-box">Aucun cas tiré pour le moment.</div>
+              <label class="checkbox"><input id="bootBId" type="checkbox"> Carte d'identité vérifiée</label>
+              <div class="tiny-actions" style="margin-top: 12px;">
+                <button id="bootBDrawBtn" class="btn-success">Tirer le cas</button>
+                <button id="bootBStartPrepBtn" class="btn-secondary">Lancer 15 min</button>
+              </div>
+              <div class="timer" id="bootBTimerBlock">
+                <div class="mini-label">Minuteur préparation</div>
+                <div class="timer-value" id="bootBTimerValue">15:00</div>
+                <div class="timer-progress"><div id="bootBTimerBar"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="button-row" style="margin-top: 14px;">
+            <button id="startWithABtn" class="btn-dark">A passe / B fait le patient</button>
+            <button id="startWithBBtn" class="btn-dark">B passe / A fait le patient</button>
+          </div>
+        </section>
+
+        <section class="queue-box">
+          <h4>File d'attente</h4>
+          <div id="queueList" class="queue-list"></div>
+        </section>
+
+        <section class="queue-box">
+          <h4>Historique des passages</h4>
+          <div id="historyList" class="history-list"></div>
+        </section>
+      </section>
+
+      <section class="right-column">
+        <section class="dashboard">
+          <article class="card">
+            <div class="card-head">
+              <div class="card-title">Étudiant qui passe</div>
+              <span class="tag blue">10 minutes</span>
+            </div>
+            <div id="currentName" class="name">Aucun oral lancé</div>
+            <div class="mini-label">Cas clinique</div>
+            <div id="currentCase" class="case-box">Charge une session, prépare le binôme initial puis lance le premier oral.</div>
+            <div id="currentIdentityBadge" class="identity-badge">Carte d'identité non cochée</div>
+            <div id="currentTimerBlock" class="timer">
+              <div class="mini-label">Minuteur oral</div>
+              <div id="currentTimerValue" class="timer-value">10:00</div>
+              <div class="timer-progress"><div id="currentTimerBar"></div></div>
+            </div>
+            <div class="card-actions">
+              <button id="startCurrentTimerBtn" class="btn-primary">Démarrer</button>
+              <button id="pauseCurrentTimerBtn" class="btn-secondary">Pause</button>
+              <button id="resetCurrentTimerBtn" class="btn-warning">Remettre à 10 min</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div class="card-title">Étudiant qui prépare</div>
+              <span class="tag green">15 minutes</span>
+            </div>
+            <div id="prepName" class="name">—</div>
+            <div class="mini-label">Cas clinique</div>
+            <div id="prepCase" class="case-box">Le prochain étudiant apparaîtra ici.</div>
+            <div id="prepIdentityBadge" class="identity-badge">Carte d'identité non cochée</div>
+            <label class="checkbox" style="margin-top: 14px;"><input id="prepIdCheckbox" type="checkbox"> Carte d'identité montrée</label>
+            <div id="prepTimerBlock" class="timer">
+              <div class="mini-label">Minuteur préparation</div>
+              <div id="prepTimerValue" class="timer-value">15:00</div>
+              <div class="timer-progress"><div id="prepTimerBar"></div></div>
+            </div>
+            <div class="prep-actions">
+              <button id="drawPrepBtn" class="btn-success">Tirage au sort</button>
+              <button id="startPrepTimerBtn" class="btn-primary">Démarrer</button>
+              <button id="pausePrepTimerBtn" class="btn-secondary">Pause</button>
+              <button id="resetPrepTimerBtn" class="btn-warning">Remettre à 15 min</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div class="card-title">Patient</div>
+              <span class="tag gold">Rotation</span>
+            </div>
+            <div id="patientName" class="name">—</div>
+            <div class="mini-label">Rôle</div>
+            <div id="patientNote" class="case-box patient-note">Le rôle patient sera occupé par l'étudiant qui était évalué au tour précédent, sauf pour le tout premier oral où le binôme initial s'intervertit.</div>
+            <div class="card-actions">
+              <button id="nextTurnBtn" class="btn-dark">Passage terminé / rotation</button>
+              <button id="swapBootstrapBtn" class="btn-secondary">Faire passer l'autre du binôme initial</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div class="card-title">Vue d'ensemble</div>
+              <span class="tag red">Pilotage</span>
+            </div>
+            <div class="status-line" id="overviewStatus">En attente de configuration.</div>
+            <div style="margin-top: 14px;" class="mini-label">Cas restants dans l'urne</div>
+            <div id="casesLeft" class="name" style="font-size: 2.2rem;">0</div>
+            <div class="mini-label">Prochain étudiant à entrer</div>
+            <div id="nextStudentPreview" class="case-box">—</div>
+            <div class="card-actions">
+              <button id="restoreCasesBtn" class="btn-secondary">Recalculer l'urne</button>
+              <button id="downloadSessionBtn" class="btn-warning">Exporter la session</button>
+            </div>
+          </article>
+        </section>
+
+        <div class="footer-bar">
+          <div>Astuce : la session est sauvegardée localement dans le navigateur. <a href="retro.html" target="_blank" rel="noopener" style="font-weight:800; color: var(--accent); text-decoration:none; margin-left:8px;">Ouvrir la vue rétro</a></div>
+          <div id="footerState">Prêt.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="drawModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card">
+      <div class="draw-stage">Tirage au sort</div>
+      <div id="drawTarget" class="draw-target">—</div>
+      <div id="drawCaseBox" class="draw-case">Préparation du tirage…</div>
+      <div class="button-row" style="justify-content:center;">
+        <button id="confirmDrawBtn" class="btn-success">Valider le tirage</button>
+        <button id="cancelDrawBtn" class="btn-secondary">Annuler</button>
+      </div>
+      <small>Après validation, le cas est attribué à l'étudiant et l'écran revient au tableau de bord.</small>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

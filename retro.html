@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UI 10-S6 – Vue rétro</title>
+  <style>
+    :root {
+      --bg: #0f1b2a;
+      --panel: #15283d;
+      --panel-2: #1b3552;
+      --line: rgba(255,255,255,0.12);
+      --text: #f7fbff;
+      --muted: #b8cadc;
+      --accent: #7fc1ff;
+      --ok: #7ae2a5;
+      --warn: #ffd27a;
+      --danger: #ff958f;
+      --shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+      --radius: 28px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #17324e 0%, #0f1b2a 60%);
+      color: var(--text);
+    }
+    .page {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+      gap: 18px;
+    }
+    .topbar {
+      display: grid;
+      grid-template-columns: 180px 1fr 260px;
+      gap: 18px;
+      align-items: stretch;
+    }
+    .box, .card, .footer {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+    .logo-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      min-height: 130px;
+    }
+    .logo-box img {
+      max-width: 100%;
+      max-height: 96px;
+      object-fit: contain;
+      display: none;
+    }
+    .fallback {
+      width: 100%;
+      height: 96px;
+      border-radius: 20px;
+      border: 1px dashed rgba(255,255,255,0.22);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+    .title-box {
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      min-height: 130px;
+    }
+    .title-box h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2vw, 2rem);
+      line-height: 1.25;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+    .title-box h2 {
+      margin: 10px 0 0;
+      font-size: clamp(1.1rem, 1.5vw, 1.35rem);
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .clock-box {
+      min-height: 130px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 18px;
+      text-align: center;
+    }
+    .mini-label {
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--muted);
+    }
+    .clock-time {
+      font-size: clamp(2.6rem, 5vw, 4rem);
+      line-height: 1;
+      font-weight: 900;
+      margin-top: 10px;
+    }
+    .clock-date {
+      margin-top: 8px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .status {
+      padding: 18px 22px;
+      font-size: clamp(1rem, 1.3vw, 1.2rem);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      flex: 1;
+      min-height: 0;
+    }
+    .card {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      min-height: 420px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::after {
+      content: "";
+      position: absolute;
+      top: -20px;
+      right: -20px;
+      width: 180px;
+      height: 180px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(127,193,255,0.18), rgba(127,193,255,0));
+      pointer-events: none;
+    }
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: relative;
+      z-index: 1;
+    }
+    .title {
+      font-size: clamp(1.25rem, 1.7vw, 1.55rem);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+    .tag {
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.86rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+    .blue { background: rgba(127,193,255,0.14); color: #cbe7ff; }
+    .green { background: rgba(122,226,165,0.14); color: #bdf7d1; }
+    .gold { background: rgba(255,210,122,0.14); color: #ffe6ad; }
+    .name {
+      font-size: clamp(2.1rem, 3vw, 3rem);
+      line-height: 1.08;
+      font-weight: 900;
+      margin-top: 18px;
+      position: relative;
+      z-index: 1;
+    }
+    .case-box {
+      margin-top: 12px;
+      padding: 18px;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--line);
+      font-size: clamp(1.05rem, 1.35vw, 1.28rem);
+      line-height: 1.45;
+      min-height: 136px;
+      position: relative;
+      z-index: 1;
+    }
+    .identity {
+      margin-top: 14px;
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      position: relative;
+      z-index: 1;
+    }
+    .identity.ok {
+      background: rgba(122,226,165,0.16);
+      color: #c8f7d7;
+    }
+    .timer {
+      margin-top: auto;
+      padding-top: 18px;
+      position: relative;
+      z-index: 1;
+    }
+    .timer-value {
+      font-size: clamp(3rem, 5vw, 4.5rem);
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: -0.05em;
+      margin-top: 8px;
+    }
+    .timer.warning .timer-value { color: var(--warn); }
+    .timer.finished .timer-value { color: var(--danger); }
+    .timer.running .timer-value { color: var(--accent); }
+    .bar {
+      margin-top: 14px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+    .bar > div {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #5da8ff, #7fc1ff);
+    }
+    .footer {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 0.98rem;
+    }
+    .hidden { display: none !important; }
+    @media (max-width: 1280px) {
+      .topbar, .grid { grid-template-columns: 1fr; }
+      .card { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="box logo-box">
+        <img id="logoImage" src="logo-ifmk.png" alt="Logo IFMK" />
+        <div id="logoFallback" class="fallback">IFMK<br/>Montpellier</div>
+      </div>
+      <div class="box title-box">
+        <h1>UI 10-S6 - Démarche et pratique clinique : élaboration du raisonnement professionnel et analyse réflexive</h1>
+        <h2>Évaluations orales</h2>
+      </div>
+      <div class="box clock-box">
+        <div class="mini-label">Heure</div>
+        <div id="clockTime" class="clock-time">--:--:--</div>
+        <div id="clockDate" class="clock-date">--</div>
+      </div>
+    </header>
+
+    <section id="statusBox" class="box status">En attente de session.</section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="head">
+          <div class="title" id="card1Title">Étudiant qui passe</div>
+          <span class="tag blue" id="card1Tag">10 minutes</span>
+        </div>
+        <div class="name" id="card1Name">—</div>
+        <div class="mini-label" style="margin-top: 16px;">Cas clinique</div>
+        <div class="case-box" id="card1Case">Aucun cas affiché.</div>
+        <div class="identity" id="card1Identity">Carte d'identité non cochée</div>
+        <div class="timer" id="card1Timer">
+          <div class="mini-label">Minuteur</div>
+          <div class="timer-value" id="card1TimerValue">10:00</div>
+          <div class="bar"><div id="card1TimerBar"></div></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="head">
+          <div class="title" id="card2Title">Patient</div>
+          <span class="tag gold" id="card2Tag">en salle</span>
+        </div>
+        <div class="name" id="card2Name">—</div>
+        <div class="mini-label" style="margin-top: 16px;">Cas clinique</div>
+        <div class="case-box" id="card2Case">Aucun cas affiché.</div>
+        <div class="identity" id="card2Identity">Carte d'identité non cochée</div>
+        <div class="timer" id="card2Timer">
+          <div class="mini-label" id="card2TimerLabel">Information</div>
+          <div class="timer-value" id="card2TimerValue" style="font-size: clamp(1.6rem, 2.2vw, 2rem); letter-spacing: 0; line-height: 1.3;">Cas réservé tant que l'étudiant est en salle</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="head">
+          <div class="title" id="card3Title">Étudiant qui prépare</div>
+          <span class="tag green" id="card3Tag">15 minutes</span>
+        </div>
+        <div class="name" id="card3Name">—</div>
+        <div class="mini-label" style="margin-top: 16px;">Cas clinique</div>
+        <div class="case-box" id="card3Case">Aucun cas affiché.</div>
+        <div class="identity" id="card3Identity">Carte d'identité non cochée</div>
+        <div class="timer" id="card3Timer">
+          <div class="mini-label">Minuteur</div>
+          <div class="timer-value" id="card3TimerValue">15:00</div>
+          <div class="bar"><div id="card3TimerBar"></div></div>
+        </div>
+      </article>
+    </section>
+
+    <footer class="footer">
+      <div>Vue rétro synchronisée avec la page principale via le navigateur.</div>
+      <div id="footerInfo">Prêt.</div>
+    </footer>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'ifmk-oraux-dashboard-v1';
+    const els = {
+      logoImage: document.getElementById('logoImage'),
+      logoFallback: document.getElementById('logoFallback'),
+      clockTime: document.getElementById('clockTime'),
+      clockDate: document.getElementById('clockDate'),
+      statusBox: document.getElementById('statusBox'),
+      footerInfo: document.getElementById('footerInfo'),
+      c1Title: document.getElementById('card1Title'),
+      c1Tag: document.getElementById('card1Tag'),
+      c1Name: document.getElementById('card1Name'),
+      c1Case: document.getElementById('card1Case'),
+      c1Identity: document.getElementById('card1Identity'),
+      c1Timer: document.getElementById('card1Timer'),
+      c1TimerValue: document.getElementById('card1TimerValue'),
+      c1TimerBar: document.getElementById('card1TimerBar'),
+      c2Title: document.getElementById('card2Title'),
+      c2Tag: document.getElementById('card2Tag'),
+      c2Name: document.getElementById('card2Name'),
+      c2Case: document.getElementById('card2Case'),
+      c2Identity: document.getElementById('card2Identity'),
+      c2Timer: document.getElementById('card2Timer'),
+      c2TimerLabel: document.getElementById('card2TimerLabel'),
+      c2TimerValue: document.getElementById('card2TimerValue'),
+      c3Title: document.getElementById('card3Title'),
+      c3Tag: document.getElementById('card3Tag'),
+      c3Name: document.getElementById('card3Name'),
+      c3Case: document.getElementById('card3Case'),
+      c3Identity: document.getElementById('card3Identity'),
+      c3Timer: document.getElementById('card3Timer'),
+      c3TimerValue: document.getElementById('card3TimerValue'),
+      c3TimerBar: document.getElementById('card3TimerBar')
+    };
+
+    function formatTime(seconds) {
+      const safe = Math.max(0, Number(seconds) || 0);
+      const min = Math.floor(safe / 60).toString().padStart(2, '0');
+      const sec = Math.floor(safe % 60).toString().padStart(2, '0');
+      return `${min}:${sec}`;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      els.clockTime.textContent = now.toLocaleTimeString('fr-FR');
+      els.clockDate.textContent = now.toLocaleDateString('fr-FR', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+    }
+
+    function setIdentity(el, student) {
+      const ok = !!student?.idChecked;
+      el.classList.toggle('ok', ok);
+      el.textContent = ok ? 'Carte d\'identité vérifiée' : 'Carte d\'identité non cochée';
+    }
+
+    function setTimerVisual(container, valueEl, barEl, timer) {
+      container.classList.remove('running', 'warning', 'finished');
+      if (!timer) {
+        valueEl.textContent = '—';
+        barEl.style.width = '0%';
+        return;
+      }
+      valueEl.textContent = formatTime(timer.remaining);
+      if (timer.running) container.classList.add('running');
+      if (timer.finished || timer.remaining === 0) container.classList.add('finished');
+      else if (timer.remaining <= 60) container.classList.add('warning');
+      const pct = Math.max(0, Math.min(100, ((timer.remaining || 0) / (timer.duration || 1)) * 100));
+      barEl.style.width = `${pct}%`;
+    }
+
+    function readState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
+    }
+
+    function renderLive(state) {
+      const current = state.roles?.current || null;
+      const patient = state.roles?.patient || null;
+      const prep = state.roles?.prep || null;
+
+      els.c1Title.textContent = 'Étudiant qui passe';
+      els.c1Tag.textContent = '10 minutes';
+      els.c1Name.textContent = current?.name || '—';
+      els.c1Case.textContent = current?.caseTitle || 'Aucun cas affiché.';
+      setIdentity(els.c1Identity, current);
+      setTimerVisual(els.c1Timer, els.c1TimerValue, els.c1TimerBar, state.timers?.current);
+
+      els.c2Title.textContent = 'Patient';
+      els.c2Tag.textContent = 'en salle';
+      els.c2Name.textContent = patient?.name || '—';
+      els.c2Case.textContent = patient?.caseTitle || 'Aucun cas affiché.';
+      setIdentity(els.c2Identity, patient);
+      els.c2TimerLabel.textContent = 'Règle d\'urne';
+      els.c2TimerValue.textContent = patient
+        ? 'Cas réservé tant que l\'étudiant est en salle'
+        : 'Aucun patient en salle';
+
+      els.c3Title.textContent = 'Étudiant qui prépare';
+      els.c3Tag.textContent = '15 minutes';
+      els.c3Name.textContent = prep?.name || '—';
+      els.c3Case.textContent = prep?.caseTitle || 'En attente de tirage.';
+      setIdentity(els.c3Identity, prep);
+      setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, state.timers?.prep);
+
+      const nextName = state.queue?.[0]?.name || 'aucun autre étudiant';
+      if (state.awaitingBootstrapSwap) {
+        els.statusBox.textContent = `Premier oral : ${current?.name || '—'} passe. Ensuite, faites passer l'autre étudiant du binôme initial. ${prep?.name || 'Aucun étudiant'} prépare en parallèle.`;
+      } else {
+        els.statusBox.textContent = `Oral en cours : ${current?.name || '—'}. Préparation parallèle : ${prep?.name || '—'}. Prochain étudiant à entrer : ${nextName}.`;
+      }
+      els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas actuellement disponibles dans l'urne.`;
+    }
+
+    function renderBootstrap(state) {
+      const A = state.bootstrap?.A || null;
+      const B = state.bootstrap?.B || null;
+      const next = state.queue?.[0] || null;
+
+      els.c1Title.textContent = 'Étudiant A';
+      els.c1Tag.textContent = 'préparation';
+      els.c1Name.textContent = A?.name || '—';
+      els.c1Case.textContent = A?.caseTitle || 'En attente de tirage.';
+      setIdentity(els.c1Identity, A);
+      setTimerVisual(els.c1Timer, els.c1TimerValue, els.c1TimerBar, state.timers?.bootA);
+
+      els.c2Title.textContent = 'Étudiant B';
+      els.c2Tag.textContent = 'préparation';
+      els.c2Name.textContent = B?.name || '—';
+      els.c2Case.textContent = B?.caseTitle || 'En attente de tirage.';
+      setIdentity(els.c2Identity, B);
+      els.c2TimerLabel.textContent = 'Règle d\'urne';
+      els.c2TimerValue.textContent = 'Chaque cas tiré reste réservé tant que l\'étudiant reste en salle';
+
+      els.c3Title.textContent = 'Prochain étudiant';
+      els.c3Tag.textContent = 'attente';
+      els.c3Name.textContent = next?.name || '—';
+      els.c3Case.textContent = 'Entrera en préparation après le lancement du premier oral.';
+      setIdentity(els.c3Identity, null);
+      setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, { duration: 900, remaining: 900, running: false, finished: false });
+
+      els.statusBox.textContent = 'Binôme initial en préparation. Vérifiez l’identité, tirez les cas, puis choisissez qui passe en premier.';
+      els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas actuellement disponibles dans l'urne.`;
+    }
+
+    function renderSetup() {
+      els.statusBox.textContent = 'En attente de session.';
+      [
+        [els.c1Title, 'Étudiant qui passe'], [els.c2Title, 'Patient'], [els.c3Title, 'Étudiant qui prépare'],
+        [els.c1Tag, '10 minutes'], [els.c2Tag, 'en salle'], [els.c3Tag, '15 minutes'],
+        [els.c1Name, '—'], [els.c2Name, '—'], [els.c3Name, '—'],
+        [els.c1Case, 'Aucun cas affiché.'], [els.c2Case, 'Aucun cas affiché.'], [els.c3Case, 'Aucun cas affiché.'],
+        [els.c1TimerValue, '10:00'], [els.c3TimerValue, '15:00']
+      ].forEach(([el, value]) => el.textContent = value);
+      els.c2TimerLabel.textContent = 'Information';
+      els.c2TimerValue.textContent = 'Aucune session active';
+      [els.c1Identity, els.c2Identity, els.c3Identity].forEach(el => { el.classList.remove('ok'); el.textContent = 'Carte d\'identité non cochée'; });
+      els.c1TimerBar.style.width = '100%';
+      els.c3TimerBar.style.width = '100%';
+      els.footerInfo.textContent = 'Prêt.';
+    }
+
+    function render() {
+      const state = readState();
+      if (!state || state.phase === 'setup') {
+        renderSetup();
+        return;
+      }
+      if (state.phase === 'bootstrap') {
+        renderBootstrap(state);
+        return;
+      }
+      renderLive(state);
+    }
+
+    els.logoImage.addEventListener('load', () => {
+      els.logoImage.style.display = 'block';
+      els.logoFallback.classList.add('hidden');
+    });
+    els.logoImage.addEventListener('error', () => {
+      els.logoImage.style.display = 'none';
+      els.logoFallback.classList.remove('hidden');
+    });
+
+    window.addEventListener('storage', (event) => {
+      if (event.key === STORAGE_KEY) render();
+    });
+
+    updateClock();
+    render();
+    setInterval(updateClock, 1000);
+    setInterval(render, 1000);
+  </script>
+</body>
+</html>
