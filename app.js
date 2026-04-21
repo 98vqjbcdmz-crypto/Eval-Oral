@@ -45,19 +45,66 @@ let modalFinalCase = null;
 let modalPool = [];
 
 const EVALUATION_CRITERIA = [
-  { id: 'bilans', label: 'Évaluation (bilans) C1 et C4' },
-  { id: 'technique', label: 'Pratique technique C1, C2 et C4' },
-  { id: 'cif', label: 'Classification internationale du fonctionnement C1 et C4' },
-  { id: 'communication', label: 'Communication, posture et argumentation C5' }
-];
-
-const EVALUATION_LEVELS = [
-  { value: '', label: 'Non évalué' },
-  { value: '5', label: '5 - Praticien expérimenté' },
-  { value: '3.75', label: '3,75 - Praticien avancé' },
-  { value: '2.5', label: '2,5 - Praticien intermédiaire' },
-  { value: '1.25', label: '1,25 - Novice avancé' },
-  { value: '0', label: '0 - Novice' }
+  {
+    id: 'bilans',
+    label: 'Évaluation (bilans) C1 et C4',
+    max: 5,
+    levels: [
+      { value: '5', label: '5 - Praticien expérimenté' },
+      { value: '3.75', label: '3,75 - Praticien avancé' },
+      { value: '2.5', label: '2,5 - Praticien intermédiaire' },
+      { value: '1.25', label: '1,25 - Novice avancé' },
+      { value: '0', label: '0 - Novice' }
+    ]
+  },
+  {
+    id: 'technique',
+    label: 'Pratique technique C1, C2 et C4',
+    max: 5,
+    levels: [
+      { value: '5', label: '5 - Praticien expérimenté' },
+      { value: '3.75', label: '3,75 - Praticien avancé' },
+      { value: '2.5', label: '2,5 - Praticien intermédiaire' },
+      { value: '1.25', label: '1,25 - Novice avancé' },
+      { value: '0', label: '0 - Novice' }
+    ]
+  },
+  {
+    id: 'cif',
+    label: 'Classification internationale du fonctionnement C1 et C4',
+    max: 5,
+    levels: [
+      { value: '5', label: '5 - Praticien expérimenté' },
+      { value: '3.75', label: '3,75 - Praticien avancé' },
+      { value: '2.5', label: '2,5 - Praticien intermédiaire' },
+      { value: '1.25', label: '1,25 - Novice avancé' },
+      { value: '0', label: '0 - Novice' }
+    ]
+  },
+  {
+    id: 'objectif',
+    label: 'Objectif spécifique C2 et C4',
+    max: 3,
+    levels: [
+      { value: '3', label: '3 - Praticien expérimenté' },
+      { value: '2.25', label: '2,25 - Praticien avancé' },
+      { value: '1.5', label: '1,5 - Praticien intermédiaire' },
+      { value: '0.75', label: '0,75 - Novice avancé' },
+      { value: '0', label: '0 - Novice' }
+    ]
+  },
+  {
+    id: 'communication',
+    label: 'Attitude et communication C5',
+    max: 2,
+    levels: [
+      { value: '2', label: '2 - Praticien expérimenté' },
+      { value: '1.5', label: '1,5 - Praticien avancé' },
+      { value: '1', label: '1 - Praticien intermédiaire' },
+      { value: '0.5', label: '0,5 - Novice avancé' },
+      { value: '0', label: '0 - Novice' }
+    ]
+  }
 ];
 
 const els = {
@@ -912,7 +959,7 @@ function buildExamPdf(evaluation, score) {
 
   EVALUATION_CRITERIA.forEach(item => {
     const criterion = evaluation.criteria?.[item.id] || {};
-    lines.push(`${item.label} : ${criterion.score || 'non évalué'} / 5`);
+    lines.push(`${item.label} : ${criterion.score || 'non évalué'} / ${item.max}`);
     lines.push(`Commentaire : ${criterion.comment || ''}`);
     lines.push('');
   });
@@ -922,7 +969,7 @@ function buildExamPdf(evaluation, score) {
   lines.push('Axes d’amélioration');
   lines.push(evaluation.improvementAreas || '');
   lines.push('');
-  lines.push('Commentaire si note < 10');
+  lines.push('Commentaire si note < 10, risque ou drapeau rouge');
   lines.push(evaluation.lowScoreComment || '');
 
   return createSimplePdf(lines);
@@ -962,7 +1009,7 @@ function buildDailySummaryPdf(evaluations) {
     lines.push(`Points positifs : ${item.positivePoints || ''}`);
     lines.push(`Axes d'amélioration : ${item.improvementAreas || ''}`);
     if ((Number(item.score) || 0) < 10 || item.lowScoreComment) {
-      lines.push(`Commentaire < 10 : ${item.lowScoreComment || ''}`);
+      lines.push(`Commentaire < 10, risque ou drapeau rouge : ${item.lowScoreComment || ''}`);
     }
     lines.push('');
   });
@@ -1123,10 +1170,7 @@ function ensureCurrentEvaluation() {
 function getEvaluationScore() {
   const evaluation = state.currentEvaluation;
   if (!evaluation) return 0;
-  return EVALUATION_CRITERIA.reduce((total, item) => {
-    const value = parseFloat(evaluation.criteria?.[item.id]?.score || '0');
-    return total + (Number.isFinite(value) ? value : 0);
-  }, 0);
+  return calculateEvaluationScore(evaluation);
 }
 
 function renderEvaluationForm() {
@@ -1142,9 +1186,10 @@ function renderEvaluationForm() {
   if (!els.evaluationItems.dataset.ready) {
     els.evaluationItems.innerHTML = EVALUATION_CRITERIA.map(item => `
       <div class="eval-item">
-        <h4>${item.label}</h4>
+        <h4>${item.label} <span>/ ${item.max}</span></h4>
         <select data-eval-score="${item.id}">
-          ${EVALUATION_LEVELS.map(level => `<option value="${level.value}">${level.label}</option>`).join('')}
+          <option value="">Non évalué</option>
+          ${item.levels.map(level => `<option value="${level.value}">${level.label}</option>`).join('')}
         </select>
         <textarea data-eval-comment="${item.id}" placeholder="Commentaire pour ce critère"></textarea>
       </div>
@@ -1198,9 +1243,14 @@ function findEvaluationScoreForHistory(historyItem) {
   const evaluation = findEvaluationForHistory(historyItem);
   if (!evaluation) return 0;
   if (Number.isFinite(Number(evaluation.score))) return Number(evaluation.score);
+  return calculateEvaluationScore(evaluation);
+}
+
+function calculateEvaluationScore(evaluation) {
   return EVALUATION_CRITERIA.reduce((total, item) => {
     const value = parseFloat(evaluation.criteria?.[item.id]?.score || '0');
-    return total + (Number.isFinite(value) ? value : 0);
+    if (!Number.isFinite(value)) return total;
+    return total + Math.min(Math.max(value, 0), item.max);
   }, 0);
 }
 
@@ -1221,7 +1271,7 @@ function buildHistoryResultHtml(historyItem, evaluation, score, payload) {
   const criteriaHtml = evaluation
     ? EVALUATION_CRITERIA.map(item => {
       const criterion = evaluation.criteria?.[item.id] || {};
-      return `<section><h2>${escapeHtml(item.label)} - ${escapeHtml(criterion.score || 'non évalué')} / 5</h2><p>${escapeHtml(criterion.comment || 'Aucun commentaire.')}</p></section>`;
+      return `<section><h2>${escapeHtml(item.label)} - ${escapeHtml(criterion.score || 'non évalué')} / ${escapeHtml(String(item.max))}</h2><p>${escapeHtml(criterion.comment || 'Aucun commentaire.')}</p></section>`;
     }).join('')
     : '<p>Aucune fiche soumise pour ce passage.</p>';
   const downloadScript = evaluation ? `
@@ -1275,7 +1325,7 @@ function buildHistoryResultHtml(historyItem, evaluation, score, payload) {
         ${evaluation ? `
           <section><h2>Points positifs</h2><p>${escapeHtml(evaluation.positivePoints || 'Aucun commentaire.')}</p></section>
           <section><h2>Axes d'amélioration</h2><p>${escapeHtml(evaluation.improvementAreas || 'Aucun commentaire.')}</p></section>
-          <section><h2>Commentaire si note &lt; 10</h2><p>${escapeHtml(evaluation.lowScoreComment || 'Aucun commentaire.')}</p></section>
+          <section><h2>Commentaire si note &lt; 10, risque ou drapeau rouge</h2><p>${escapeHtml(evaluation.lowScoreComment || 'Aucun commentaire.')}</p></section>
         ` : ''}
       </main>
       ${downloadScript}
