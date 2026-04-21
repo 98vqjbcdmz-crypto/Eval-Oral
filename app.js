@@ -13,6 +13,7 @@ const initialState = () => ({
   availableCases: [],
   usedCases: [],
   history: [],
+  submittedEvaluations: [],
   bootstrap: {
     A: null,
     B: null
@@ -144,6 +145,7 @@ const els = {
   nextStudentPreview: document.getElementById('nextStudentPreview'),
   restoreCasesBtn: document.getElementById('restoreCasesBtn'),
   pauseEvaluationsBtn: document.getElementById('pauseEvaluationsBtn'),
+  dailySummaryBtn: document.getElementById('dailySummaryBtn'),
   downloadSessionBtn: document.getElementById('downloadSessionBtn'),
   footerState: document.getElementById('footerState'),
   drawModal: document.getElementById('drawModal'),
@@ -220,6 +222,7 @@ function loadState() {
     state.timers = Object.assign(initialState().timers, state.timers || {});
     state.drawPreview = state.drawPreview || null;
     state.currentEvaluation = state.currentEvaluation || null;
+    state.submittedEvaluations = state.submittedEvaluations || [];
     if (typeof state.awaitingBootstrapSwap !== 'boolean') {
       state.awaitingBootstrapSwap = false;
     }
@@ -773,6 +776,7 @@ function submitExamPdf() {
     if (!ok) return;
   }
   const pdf = buildExamPdf(state.currentEvaluation, score);
+  archiveSubmittedEvaluation(state.currentEvaluation, score);
   const blob = new Blob([pdf], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -780,7 +784,31 @@ function submitExamPdf() {
   a.download = buildExamFilename(state.currentEvaluation);
   a.click();
   URL.revokeObjectURL(url);
-  showToast('Fiche d’examen PDF générée.');
+  saveState(true);
+  showToast('Fiche d’examen PDF générée et ajoutée au récapitulatif de journée.');
+}
+
+function archiveSubmittedEvaluation(evaluation, score) {
+  const submitted = {
+    ...clone(evaluation),
+    score,
+    submittedAt: new Date().toISOString(),
+    key: evaluationKey(evaluation)
+  };
+  const existingIndex = state.submittedEvaluations.findIndex(item => item.key === submitted.key);
+  if (existingIndex >= 0) {
+    state.submittedEvaluations[existingIndex] = submitted;
+  } else {
+    state.submittedEvaluations.push(submitted);
+  }
+}
+
+function evaluationKey(evaluation) {
+  return [
+    evaluation.studentName || '',
+    evaluation.caseTitle || '',
+    evaluation.startedAt || ''
+  ].join('|');
 }
 
 function buildExamFilename(evaluation) {
@@ -822,6 +850,47 @@ function buildExamPdf(evaluation, score) {
   lines.push('Commentaire si note < 10');
   lines.push(evaluation.lowScoreComment || '');
 
+  return createSimplePdf(lines);
+}
+
+function generateDailySummaryPdf() {
+  const evaluations = state.submittedEvaluations || [];
+  if (!evaluations.length) {
+    alert('Aucune fiche soumise pour le récapitulatif de journée.');
+    return;
+  }
+  const pdf = buildDailySummaryPdf(evaluations);
+  const blob = new Blob([pdf], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `recapitulatif_${safeFilename('UI10-S6')}_${new Date().toISOString().slice(0, 10)}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Récapitulatif de journée généré.');
+}
+
+function buildDailySummaryPdf(evaluations) {
+  const sorted = [...evaluations].sort((a, b) => String(a.submittedAt || '').localeCompare(String(b.submittedAt || '')));
+  const average = sorted.reduce((sum, item) => sum + (Number(item.score) || 0), 0) / sorted.length;
+  const lines = [
+    'Récapitulatif de journée - Oral UI10',
+    `Session : UI10-S6`,
+    `Date : ${new Date().toLocaleDateString('fr-FR')}`,
+    `Fiches soumises : ${sorted.length}`,
+    `Moyenne : ${formatScore(average)}/20`,
+    ''
+  ];
+  sorted.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item.studentName || 'Non renseigné'} - ${formatScore(item.score || 0)}/20`);
+    lines.push(`Cas : ${item.caseTitle || 'Non renseigné'}`);
+    lines.push(`Points positifs : ${item.positivePoints || ''}`);
+    lines.push(`Axes d'amélioration : ${item.improvementAreas || ''}`);
+    if ((Number(item.score) || 0) < 10 || item.lowScoreComment) {
+      lines.push(`Commentaire < 10 : ${item.lowScoreComment || ''}`);
+    }
+    lines.push('');
+  });
   return createSimplePdf(lines);
 }
 
@@ -1109,6 +1178,7 @@ function renderMainRoles() {
   els.nextTurnBtn.disabled = !current;
   els.swapBootstrapBtn.disabled = !state.awaitingBootstrapSwap;
   els.pauseEvaluationsBtn.disabled = state.phase !== 'live';
+  els.dailySummaryBtn.disabled = !(state.submittedEvaluations || []).length;
 }
 
 function renderOverview() {
@@ -1239,6 +1309,7 @@ els.nextTurnBtn.addEventListener('click', rotateTurn);
 els.swapBootstrapBtn.addEventListener('click', swapInitialRoles);
 els.restoreCasesBtn.addEventListener('click', recalculateUrn);
 els.pauseEvaluationsBtn.addEventListener('click', pauseEvaluations);
+els.dailySummaryBtn.addEventListener('click', generateDailySummaryPdf);
 els.downloadSessionBtn.addEventListener('click', exportSession);
 
 els.confirmDrawBtn.addEventListener('click', confirmDraw);
