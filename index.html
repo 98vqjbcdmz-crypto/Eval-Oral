@@ -942,7 +942,7 @@
           <div class="button-row">
             <button id="loadSessionBtn" class="btn-primary">Charger la session</button>
             <button id="saveSessionBtn" class="btn-secondary">Sauvegarder</button>
-            <button id="restoreBackupBtn" class="btn-warning">Restaurer secours</button>
+            <button id="restoreBackupBtn" class="btn-warning">Restaurer avant reset</button>
             <button id="resetAllBtn" class="btn-danger">Réinitialiser</button>
           </div>
         </section>
@@ -1135,7 +1135,9 @@
               <button id="restoreCasesBtn" class="btn-secondary">Recalculer l'urne</button>
               <button id="pauseEvaluationsBtn" class="btn-secondary">Pause des évaluations</button>
               <button id="dailySummaryBtn" class="btn-success">PDF récap journée</button>
+              <button id="importSessionBtn" class="btn-secondary">Importer la session</button>
               <button id="downloadSessionBtn" class="btn-warning">Exporter la session</button>
+              <input id="importSessionFile" class="hidden" type="file" accept="application/json,.json">
             </div>
           </article>
         </section>

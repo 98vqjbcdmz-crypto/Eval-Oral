@@ -205,6 +205,8 @@ const els = {
   restoreCasesBtn: document.getElementById('restoreCasesBtn'),
   pauseEvaluationsBtn: document.getElementById('pauseEvaluationsBtn'),
   dailySummaryBtn: document.getElementById('dailySummaryBtn'),
+  importSessionBtn: document.getElementById('importSessionBtn'),
+  importSessionFile: document.getElementById('importSessionFile'),
   downloadSessionBtn: document.getElementById('downloadSessionBtn'),
   footerState: document.getElementById('footerState'),
   drawModal: document.getElementById('drawModal'),
@@ -283,25 +285,34 @@ function loadState() {
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw);
-    state = Object.assign(initialState(), parsed);
-    state.bootstrap = Object.assign({ A: null, B: null }, state.bootstrap || {});
-    state.roles = Object.assign({ current: null, prep: null, nextPrep: null, patient: null }, state.roles || {});
-    state.timers = Object.assign(initialState().timers, state.timers || {});
-    state.drawPreview = state.drawPreview || null;
-    state.currentEvaluation = state.currentEvaluation || null;
-    state.editingEvaluation = state.editingEvaluation || null;
-    state.lastRotationBackup = state.lastRotationBackup || null;
-    state.submittedEvaluations = state.submittedEvaluations || [];
-    if (typeof state.awaitingBootstrapSwap !== 'boolean') {
-      state.awaitingBootstrapSwap = false;
-    }
-    if (typeof state.initialSecondPass !== 'boolean') {
-      state.initialSecondPass = false;
-    }
-    syncAvailableCases();
+    applyImportedState(parsed);
   } catch (error) {
     console.error('Impossible de relire la session locale', error);
   }
+}
+
+function normalizeState(rawState) {
+  const nextState = Object.assign(initialState(), rawState || {});
+  nextState.bootstrap = Object.assign({ A: null, B: null }, nextState.bootstrap || {});
+  nextState.roles = Object.assign({ current: null, prep: null, nextPrep: null, patient: null }, nextState.roles || {});
+  nextState.timers = Object.assign(initialState().timers, nextState.timers || {});
+  nextState.drawPreview = nextState.drawPreview || null;
+  nextState.currentEvaluation = nextState.currentEvaluation || null;
+  nextState.editingEvaluation = nextState.editingEvaluation || null;
+  nextState.lastRotationBackup = nextState.lastRotationBackup || null;
+  nextState.submittedEvaluations = nextState.submittedEvaluations || [];
+  if (typeof nextState.awaitingBootstrapSwap !== 'boolean') {
+    nextState.awaitingBootstrapSwap = false;
+  }
+  if (typeof nextState.initialSecondPass !== 'boolean') {
+    nextState.initialSecondPass = false;
+  }
+  return nextState;
+}
+
+function applyImportedState(rawState) {
+  state = normalizeState(rawState);
+  syncAvailableCases();
 }
 
 function restoreBackup() {
@@ -314,11 +325,7 @@ function restoreBackup() {
   const ok = confirm('Restaurer la dernière sauvegarde de secours ? La session actuelle sera remplacée.');
   if (!ok) return;
   Object.keys(intervals).forEach(key => stopTimer(key, true));
-  state = Object.assign(initialState(), backup.state);
-  state.bootstrap = Object.assign({ A: null, B: null }, state.bootstrap || {});
-  state.roles = Object.assign({ current: null, prep: null, nextPrep: null, patient: null }, state.roles || {});
-  state.timers = Object.assign(initialState().timers, state.timers || {});
-  state.drawPreview = state.drawPreview || null;
+  applyImportedState(backup.state);
   syncAvailableCases();
   saveState(true);
   render();
@@ -1032,6 +1039,43 @@ function exportSession() {
   a.click();
   URL.revokeObjectURL(url);
   showToast('Session exportée.');
+}
+
+function chooseSessionImportFile() {
+  els.importSessionFile.value = '';
+  els.importSessionFile.click();
+}
+
+function importSessionFromFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || ''));
+      const importedState = parsed.state || parsed;
+      if (!importedState || typeof importedState !== 'object') {
+        throw new Error('Format de session invalide.');
+      }
+      const ok = confirm('Importer cette session ? La session actuelle sera remplacée.');
+      if (!ok) return;
+      Object.keys(intervals).forEach(key => stopTimer(key, true));
+      applyImportedState(importedState);
+      saveState(true);
+      render();
+      showToast(`Session importée depuis ${file.name}.`);
+    } catch (error) {
+      console.error('Import impossible', error);
+      alert('Impossible d’importer ce fichier. Vérifiez qu’il s’agit bien d’un export JSON de session.');
+    } finally {
+      els.importSessionFile.value = '';
+    }
+  };
+  reader.onerror = () => {
+    alert('Impossible de lire le fichier sélectionné.');
+    els.importSessionFile.value = '';
+  };
+  reader.readAsText(file);
 }
 
 function saveAndFinishEvaluation() {
@@ -1955,6 +1999,8 @@ els.undoRotationBtn.addEventListener('click', undoLastRotation);
 els.restoreCasesBtn.addEventListener('click', recalculateUrn);
 els.pauseEvaluationsBtn.addEventListener('click', pauseEvaluations);
 els.dailySummaryBtn.addEventListener('click', generateDailySummaryPdf);
+els.importSessionBtn.addEventListener('click', chooseSessionImportFile);
+els.importSessionFile.addEventListener('change', importSessionFromFile);
 els.downloadSessionBtn.addEventListener('click', exportSession);
 
 els.confirmDrawBtn.addEventListener('click', confirmDraw);
