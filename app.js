@@ -225,6 +225,7 @@ const els = {
   criterionPreviewCounter: document.getElementById('criterionPreviewCounter'),
   criterionPreviewScore: document.getElementById('criterionPreviewScore'),
   criterionPreviewComment: document.getElementById('criterionPreviewComment'),
+  criterionPreviewRewriteBtn: document.getElementById('criterionPreviewRewriteBtn'),
   historyResultModal: document.getElementById('historyResultModal'),
   historyResultTitle: document.getElementById('historyResultTitle'),
   historyResultBody: document.getElementById('historyResultBody'),
@@ -255,6 +256,62 @@ function updateClock() {
   els.clockDate.textContent = now.toLocaleDateString('fr-FR', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
+}
+
+function getRewriteApiUrl() {
+  const baseUrl = (window.ORAL_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  return `${baseUrl}/api/rewrite`;
+}
+
+function dispatchTextUpdate(field) {
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  field.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+async function rewriteCommentField(field, button, criterionLabel = '') {
+  if (!field || !button) return;
+  const text = field.value.trim();
+  if (!text) {
+    alert('Ajoute d’abord un commentaire à structurer.');
+    field.focus();
+    return;
+  }
+
+  const initialLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Traitement...';
+
+  try {
+    const response = await fetch(getRewriteApiUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, criterion: criterionLabel })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.text) {
+      throw new Error(payload.error || 'Réponse serveur invalide.');
+    }
+    field.value = payload.text;
+    dispatchTextUpdate(field);
+    field.focus();
+  } catch (error) {
+    console.error(error);
+    alert('Impossible de structurer le commentaire. Vérifie que le serveur local est lancé.');
+  } finally {
+    button.disabled = false;
+    button.textContent = initialLabel;
+  }
+}
+
+function rewriteCriterionComment(itemId, button) {
+  const item = EVALUATION_CRITERIA.find(criterion => criterion.id === itemId);
+  const field = els.evaluationItems.querySelector(`[data-eval-comment="${itemId}"]`);
+  rewriteCommentField(field, button, item?.label || '');
+}
+
+function rewritePreviewComment() {
+  const item = EVALUATION_CRITERIA[previewCriterionIndex];
+  rewriteCommentField(els.criterionPreviewComment, els.criterionPreviewRewriteBtn, item?.label || '');
 }
 
 function saveState(silent = false) {
@@ -1662,6 +1719,10 @@ function renderEvaluationForm() {
           <option value="">Non évalué</option>
           ${item.levels.map(level => `<option value="${level.value}">${level.label}</option>`).join('')}
         </select>
+        <div class="comment-tools">
+          <span class="mini-label">Commentaire</span>
+          <button class="rewrite-btn" type="button" data-rewrite-comment="${item.id}">Structurer</button>
+        </div>
         <textarea data-eval-comment="${item.id}" placeholder="Commentaire pour ce critère"></textarea>
       </div>
     `).join('');
@@ -1674,6 +1735,9 @@ function renderEvaluationForm() {
     });
     els.evaluationItems.querySelectorAll('[data-criterion-preview]').forEach(button => {
       button.addEventListener('click', () => openCriterionPreview(button.dataset.criterionPreview));
+    });
+    els.evaluationItems.querySelectorAll('[data-rewrite-comment]').forEach(button => {
+      button.addEventListener('click', () => rewriteCriterionComment(button.dataset.rewriteComment, button));
     });
   }
   EVALUATION_CRITERIA.forEach(item => {
@@ -2077,6 +2141,7 @@ els.prevCriterionBtn.addEventListener('click', () => moveCriterionPreview(-1));
 els.nextCriterionBtn.addEventListener('click', () => moveCriterionPreview(1));
 els.criterionPreviewScore.addEventListener('change', updateCriterionFromPreview);
 els.criterionPreviewComment.addEventListener('input', updateCriterionFromPreview);
+els.criterionPreviewRewriteBtn.addEventListener('click', rewritePreviewComment);
 els.criterionPreviewModal.addEventListener('click', (event) => {
   if (event.target === els.criterionPreviewModal) {
     closeCriterionPreview();

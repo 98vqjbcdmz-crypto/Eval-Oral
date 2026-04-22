@@ -25,6 +25,10 @@ Si ce fichier n'est pas présent, un emplacement de remplacement reste affiché.
 ## Données
 La session est sauvegardée localement dans le navigateur.
 
+## Aide rédactionnelle
+- Les boutons **Structurer** appellent un petit serveur local dans `server/`.
+- La clé OpenAI reste dans `server/.env`, jamais dans la page GitHub ni dans le dépôt.
+- Voir `server/README.md` pour l'installation et le lancement sur le MacBook.
 
 ## Vue rétro / vidéoprojecteur
 - `retro.html` : vue grand format pour la salle.
