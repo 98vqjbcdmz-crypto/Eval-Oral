@@ -46,6 +46,7 @@ let intervals = {};
 let modalSpinInterval = null;
 let modalFinalCase = null;
 let modalPool = [];
+let previewCriterionIndex = 0;
 
 const EVALUATION_CRITERIA = [
   {
@@ -169,6 +170,8 @@ const els = {
   positivePoints: document.getElementById('positivePoints'),
   improvementAreas: document.getElementById('improvementAreas'),
   lowScoreComment: document.getElementById('lowScoreComment'),
+  riskFlag: document.getElementById('riskFlag'),
+  riskComment: document.getElementById('riskComment'),
   prepName: document.getElementById('prepName'),
   prepCase: document.getElementById('prepCase'),
   prepIdentityBadge: document.getElementById('prepIdentityBadge'),
@@ -217,6 +220,11 @@ const els = {
   criterionPreviewTitle: document.getElementById('criterionPreviewTitle'),
   criterionPreviewImage: document.getElementById('criterionPreviewImage'),
   closeCriterionPreviewBtn: document.getElementById('closeCriterionPreviewBtn'),
+  prevCriterionBtn: document.getElementById('prevCriterionBtn'),
+  nextCriterionBtn: document.getElementById('nextCriterionBtn'),
+  criterionPreviewCounter: document.getElementById('criterionPreviewCounter'),
+  criterionPreviewScore: document.getElementById('criterionPreviewScore'),
+  criterionPreviewComment: document.getElementById('criterionPreviewComment'),
   historyResultModal: document.getElementById('historyResultModal'),
   historyResultTitle: document.getElementById('historyResultTitle'),
   historyResultBody: document.getElementById('historyResultBody'),
@@ -731,13 +739,30 @@ function closeDrawModal() {
 }
 
 function openCriterionPreview(itemId) {
-  const item = EVALUATION_CRITERIA.find(criterion => criterion.id === itemId);
-  if (!item) return;
+  const index = EVALUATION_CRITERIA.findIndex(criterion => criterion.id === itemId);
+  if (index < 0) return;
+  previewCriterionIndex = index;
+  renderCriterionPreview();
+  els.criterionPreviewModal.classList.remove('hidden');
+  els.criterionPreviewModal.setAttribute('aria-hidden', 'false');
+}
+
+function renderCriterionPreview() {
+  const item = EVALUATION_CRITERIA[previewCriterionIndex];
+  const evaluation = getActiveEvaluation();
+  if (!item || !evaluation) return;
+  hydrateEvaluationCriteria(evaluation);
+  const criterion = evaluation.criteria[item.id] || { score: '', comment: '' };
   els.criterionPreviewTitle.textContent = `${item.label} / ${item.max}`;
   els.criterionPreviewImage.src = item.image;
   els.criterionPreviewImage.alt = item.label;
-  els.criterionPreviewModal.classList.remove('hidden');
-  els.criterionPreviewModal.setAttribute('aria-hidden', 'false');
+  els.criterionPreviewCounter.textContent = `${previewCriterionIndex + 1} / ${EVALUATION_CRITERIA.length}`;
+  els.criterionPreviewScore.innerHTML = `
+    <option value="">Non évalué</option>
+    ${item.levels.map(level => `<option value="${level.value}">${level.label}</option>`).join('')}
+  `;
+  els.criterionPreviewScore.value = criterion.score || '';
+  els.criterionPreviewComment.value = criterion.comment || '';
 }
 
 function closeCriterionPreview() {
@@ -745,6 +770,28 @@ function closeCriterionPreview() {
   els.criterionPreviewModal.setAttribute('aria-hidden', 'true');
   els.criterionPreviewImage.removeAttribute('src');
   els.criterionPreviewImage.alt = '';
+}
+
+function moveCriterionPreview(direction) {
+  previewCriterionIndex = (previewCriterionIndex + direction + EVALUATION_CRITERIA.length) % EVALUATION_CRITERIA.length;
+  renderCriterionPreview();
+}
+
+function updateCriterionFromPreview() {
+  const evaluation = getActiveEvaluation();
+  const item = EVALUATION_CRITERIA[previewCriterionIndex];
+  if (!evaluation || !item) return;
+  hydrateEvaluationCriteria(evaluation);
+  evaluation.criteria[item.id] = {
+    score: els.criterionPreviewScore.value,
+    comment: els.criterionPreviewComment.value
+  };
+  const scoreEl = els.evaluationItems.querySelector(`[data-eval-score="${item.id}"]`);
+  const commentEl = els.evaluationItems.querySelector(`[data-eval-comment="${item.id}"]`);
+  if (scoreEl) scoreEl.value = els.criterionPreviewScore.value;
+  if (commentEl) commentEl.value = els.criterionPreviewComment.value;
+  els.evaluationScore.textContent = `${formatScore(getEvaluationScore(evaluation))}/20`;
+  saveState(true);
 }
 
 function confirmDraw() {
@@ -1150,6 +1197,9 @@ function getEvaluationWarnings(evaluation, score) {
   if (score < 10 && !evaluation.lowScoreComment.trim()) {
     warnings.push('note < 10 sans commentaire dédié');
   }
+  if (evaluation.riskFlag && !evaluation.riskComment.trim()) {
+    warnings.push('risque / contre-indication / drapeau rouge coché sans précision');
+  }
   return warnings;
 }
 
@@ -1273,6 +1323,11 @@ function buildExamPdf(evaluation, score) {
   lines.push('');
   lines.push('Commentaire si note < 10, risque ou drapeau rouge');
   lines.push(evaluation.lowScoreComment || '');
+  if (evaluation.riskFlag) {
+    lines.push('');
+    lines.push('Risques / contre-indications / drapeaux rouges identifiés');
+    lines.push(evaluation.riskComment || '');
+  }
 
   return createSimplePdf(lines);
 }
@@ -1315,6 +1370,9 @@ function buildDailySummaryPdf(evaluations) {
     lines.push(`Axes d'amélioration : ${item.improvementAreas || ''}`);
     if ((Number(item.score) || 0) < 10 || item.lowScoreComment) {
       lines.push(`Commentaire < 10, risque ou drapeau rouge : ${item.lowScoreComment || ''}`);
+    }
+    if (item.riskFlag) {
+      lines.push(`Risque / contre-indication / drapeau rouge : ${item.riskComment || ''}`);
     }
     lines.push('');
   });
@@ -1525,7 +1583,9 @@ function defaultEvaluation(student = state.roles.current) {
     criteria: Object.fromEntries(EVALUATION_CRITERIA.map(item => [item.id, { score: '', comment: '' }])),
     positivePoints: '',
     improvementAreas: '',
-    lowScoreComment: ''
+    lowScoreComment: '',
+    riskFlag: false,
+    riskComment: ''
   };
 }
 
@@ -1536,6 +1596,8 @@ function hydrateEvaluationCriteria(evaluation) {
   evaluation.caseWasDrawn = !!evaluation.caseWasDrawn;
   evaluation.caseCorrected = !!evaluation.caseCorrected;
   evaluation.previousCaseTitle = evaluation.previousCaseTitle || '';
+  evaluation.riskFlag = !!evaluation.riskFlag;
+  evaluation.riskComment = evaluation.riskComment || '';
   evaluation.criteria = evaluation.criteria || {};
   EVALUATION_CRITERIA.forEach(item => {
     evaluation.criteria[item.id] = evaluation.criteria[item.id] || { score: '', comment: '' };
@@ -1622,6 +1684,9 @@ function renderEvaluationForm() {
   if (document.activeElement !== els.positivePoints) els.positivePoints.value = evaluation.positivePoints || '';
   if (document.activeElement !== els.improvementAreas) els.improvementAreas.value = evaluation.improvementAreas || '';
   if (document.activeElement !== els.lowScoreComment) els.lowScoreComment.value = evaluation.lowScoreComment || '';
+  els.riskFlag.checked = !!evaluation.riskFlag;
+  els.riskComment.classList.toggle('hidden', !evaluation.riskFlag);
+  if (document.activeElement !== els.riskComment) els.riskComment.value = evaluation.riskComment || '';
 }
 
 function updateEvaluationFromForm() {
@@ -1641,6 +1706,9 @@ function updateEvaluationFromForm() {
   evaluation.positivePoints = els.positivePoints.value;
   evaluation.improvementAreas = els.improvementAreas.value;
   evaluation.lowScoreComment = els.lowScoreComment.value;
+  evaluation.riskFlag = els.riskFlag.checked;
+  evaluation.riskComment = els.riskComment.value;
+  els.riskComment.classList.toggle('hidden', !evaluation.riskFlag);
   els.evaluationScore.textContent = `${formatScore(getEvaluationScore(evaluation))}/20`;
   syncCurrentRoleFromEvaluation(evaluation);
   saveState(true);
@@ -1770,6 +1838,7 @@ function buildHistoryResultContent(historyItem, evaluation, score) {
           <section><h4>Points positifs</h4><p>${escapeHtml(evaluation.positivePoints || 'Aucun commentaire.')}</p></section>
           <section><h4>Axes d'amélioration</h4><p>${escapeHtml(evaluation.improvementAreas || 'Aucun commentaire.')}</p></section>
           <section><h4>Commentaire si note &lt; 10, risque ou drapeau rouge</h4><p>${escapeHtml(evaluation.lowScoreComment || 'Aucun commentaire.')}</p></section>
+          ${evaluation.riskFlag ? `<section><h4>Risques / contre-indications / drapeaux rouges</h4><p>${escapeHtml(evaluation.riskComment || 'Aucun commentaire.')}</p></section>` : ''}
         ` : ''}
   `;
 }
@@ -1986,6 +2055,8 @@ els.evaluationIdChecked.addEventListener('change', updateEvaluationFromForm);
 els.positivePoints.addEventListener('input', updateEvaluationFromForm);
 els.improvementAreas.addEventListener('input', updateEvaluationFromForm);
 els.lowScoreComment.addEventListener('input', updateEvaluationFromForm);
+els.riskFlag.addEventListener('change', updateEvaluationFromForm);
+els.riskComment.addEventListener('input', updateEvaluationFromForm);
 
 els.nextTurnBtn.addEventListener('click', rotateTurn);
 els.swapBootstrapBtn.addEventListener('click', swapInitialRoles);
@@ -2002,6 +2073,10 @@ els.downloadSessionBtn.addEventListener('click', exportSession);
 els.confirmDrawBtn.addEventListener('click', confirmDraw);
 els.cancelDrawBtn.addEventListener('click', closeDrawModal);
 els.closeCriterionPreviewBtn.addEventListener('click', closeCriterionPreview);
+els.prevCriterionBtn.addEventListener('click', () => moveCriterionPreview(-1));
+els.nextCriterionBtn.addEventListener('click', () => moveCriterionPreview(1));
+els.criterionPreviewScore.addEventListener('change', updateCriterionFromPreview);
+els.criterionPreviewComment.addEventListener('input', updateCriterionFromPreview);
 els.criterionPreviewModal.addEventListener('click', (event) => {
   if (event.target === els.criterionPreviewModal) {
     closeCriterionPreview();
@@ -2015,6 +2090,12 @@ els.historyResultModal.addEventListener('click', (event) => {
 });
 
 window.addEventListener('keydown', (event) => {
+  if (!els.criterionPreviewModal.classList.contains('hidden') && event.key === 'ArrowLeft') {
+    moveCriterionPreview(-1);
+  }
+  if (!els.criterionPreviewModal.classList.contains('hidden') && event.key === 'ArrowRight') {
+    moveCriterionPreview(1);
+  }
   if (event.key === 'Escape' && !els.drawModal.classList.contains('hidden')) {
     closeDrawModal();
   }

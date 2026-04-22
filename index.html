@@ -510,6 +510,8 @@
     .eval-item select,
     .eval-item textarea,
     .case-select,
+    .criterion-preview-form select,
+    .criterion-preview-form textarea,
     .evaluation-details select,
     .evaluation-details textarea,
     .synthesis-grid textarea {
@@ -523,6 +525,7 @@
     }
 
     .case-select,
+    .criterion-preview-form select,
     .evaluation-details select,
     .eval-item select {
       min-height: 44px;
@@ -846,7 +849,7 @@
     }
 
     .criterion-preview-frame {
-      max-height: calc(92vh - 92px);
+      max-height: calc(92vh - 260px);
       overflow: auto;
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -857,6 +860,41 @@
       width: 100%;
       min-width: 980px;
       display: block;
+    }
+
+    .criterion-preview-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .criterion-preview-nav button {
+      min-width: 44px;
+      height: 42px;
+      border: 0;
+      border-radius: 12px;
+      background: #eaf1fb;
+      color: var(--accent);
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .criterion-preview-form {
+      display: grid;
+      grid-template-columns: minmax(180px, .6fr) minmax(0, 1.4fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .criterion-preview-form textarea {
+      min-height: 74px;
+    }
+
+    .risk-detail {
+      grid-column: 1 / -1;
+      margin-top: 10px;
     }
 
     .history-result-card {
@@ -1078,6 +1116,10 @@
                 <textarea id="lowScoreComment"></textarea>
               </div>
             </div>
+            <div class="risk-detail">
+              <label class="checkbox"><input id="riskFlag" type="checkbox"> Risques / contre-indications / drapeaux rouges identifiés</label>
+              <textarea id="riskComment" class="hidden" placeholder="Préciser le risque, la contre-indication ou le drapeau rouge identifié"></textarea>
+            </div>
           </article>
 
           <article class="card">
@@ -1189,6 +1231,21 @@
       </div>
       <div class="criterion-preview-frame">
         <img id="criterionPreviewImage" alt="">
+      </div>
+      <div class="criterion-preview-nav">
+        <button id="prevCriterionBtn" type="button" aria-label="Item précédent">←</button>
+        <span id="criterionPreviewCounter" class="mini-label">1 / 5</span>
+        <button id="nextCriterionBtn" type="button" aria-label="Item suivant">→</button>
+      </div>
+      <div class="criterion-preview-form">
+        <div>
+          <label for="criterionPreviewScore" class="mini-label">Note</label>
+          <select id="criterionPreviewScore"></select>
+        </div>
+        <div>
+          <label for="criterionPreviewComment" class="mini-label">Commentaire</label>
+          <textarea id="criterionPreviewComment"></textarea>
+        </div>
       </div>
     </div>
   </div>
