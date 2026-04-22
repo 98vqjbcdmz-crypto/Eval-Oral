@@ -54,6 +54,16 @@ const EVALUATION_CRITERIA = [
     label: 'Évaluation (bilans) C1 et C4',
     image: 'assets/grille-items/bilans.png',
     max: 5,
+    rewriteContext: {
+      focus: 'Capacité à sélectionner, réaliser et exploiter les bilans adaptés au cas clinique. L’étudiant doit identifier les éléments significatifs, les relier au problème du patient et les utiliser pour construire son raisonnement.',
+      rubric: [
+        'Niveau élevé : bilans pertinents, précis et complets, directement reliés au cas clinique ; interprétation claire et utile au raisonnement.',
+        'Niveau intermédiaire haut : bilans globalement adaptés et exploitables, avec quelques imprécisions, oublis ou justifications incomplètes.',
+        'Niveau intermédiaire : éléments principaux présents mais analyse partielle, liens parfois insuffisants avec le problème du patient.',
+        'Niveau fragile : bilans peu ciblés, incomplets ou mal reliés au cas ; interprétation confuse ou limitée.',
+        'Niveau insuffisant : bilans absents, inadaptés ou non exploitables pour orienter la prise en charge.'
+      ]
+    },
     levels: [
       { value: '5', label: '5 - Praticien expérimenté' },
       { value: '3.75', label: '3,75 - Praticien avancé' },
@@ -67,6 +77,16 @@ const EVALUATION_CRITERIA = [
     label: 'Pratique technique C1, C2 et C4',
     image: 'assets/grille-items/technique.png',
     max: 5,
+    rewriteContext: {
+      focus: 'Capacité à proposer et réaliser une technique pertinente, sécurisée et adaptée au patient. L’évaluation porte sur la cohérence du geste, son adaptation, la qualité d’exécution et la justification du choix thérapeutique.',
+      rubric: [
+        'Niveau élevé : technique pertinente, sécurisée, fluide et adaptée au patient ; consignes claires et justification solide.',
+        'Niveau intermédiaire haut : technique globalement correcte et cohérente, avec quelques ajustements, précisions ou justifications à renforcer.',
+        'Niveau intermédiaire : réalisation acceptable mais partiellement adaptée ; manque de précision, de fluidité ou de justification.',
+        'Niveau fragile : geste imprécis, adaptation insuffisante ou consignes peu claires ; raisonnement technique fragile.',
+        'Niveau insuffisant : technique inadaptée, non maîtrisée ou potentiellement non sécurisée.'
+      ]
+    },
     levels: [
       { value: '5', label: '5 - Praticien expérimenté' },
       { value: '3.75', label: '3,75 - Praticien avancé' },
@@ -80,6 +100,16 @@ const EVALUATION_CRITERIA = [
     label: 'Classification internationale du fonctionnement C1 et C4',
     image: 'assets/grille-items/cif.png',
     max: 5,
+    rewriteContext: {
+      focus: 'Capacité à mobiliser la CIF pour analyser la situation du patient. L’étudiant doit identifier les déficiences, limitations, restrictions de participation et facteurs personnels ou environnementaux, puis établir des liens cohérents entre ces éléments.',
+      rubric: [
+        'Niveau élevé : éléments de la CIF identifiés avec précision, liens clairs entre les catégories et compréhension globale du patient dans son environnement.',
+        'Niveau intermédiaire haut : éléments de la CIF correctement identifiés et expliqués, avec des liens cohérents mais parfois moins détaillés.',
+        'Niveau intermédiaire : éléments principaux mentionnés mais catégories parfois oubliées, incomplètes ou mal reliées.',
+        'Niveau fragile : quelques éléments mentionnés sans analyse réelle ou sans lien clair avec le cas clinique.',
+        'Niveau insuffisant : éléments de la CIF absents, mal compris ou non justifiés.'
+      ]
+    },
     levels: [
       { value: '5', label: '5 - Praticien expérimenté' },
       { value: '3.75', label: '3,75 - Praticien avancé' },
@@ -93,6 +123,16 @@ const EVALUATION_CRITERIA = [
     label: 'Objectif spécifique C2 et C4',
     image: 'assets/grille-items/objectif.png',
     max: 3,
+    rewriteContext: {
+      focus: 'Capacité à formuler un objectif clair, précis, réaliste et mesurable, en lien avec le bilan, les tests et l’analyse CIF. L’objectif doit être justifié et orienter la prise en charge.',
+      rubric: [
+        'Niveau élevé : objectif clair, précis, mesurable, réaliste et directement issu du bilan, des tests et de l’analyse CIF ; justification complète et logique.',
+        'Niveau intermédiaire haut : objectif pertinent et cohérent, avec certaines dimensions possiblement manquantes ou incomplètes.',
+        'Niveau intermédiaire : objectif globalement pertinent mais imprécis, partiellement relié au bilan ou avec justification peu claire.',
+        'Niveau fragile : objectif flou, vague ou peu pertinent ; liens logiques insuffisants avec le bilan ou la CIF.',
+        'Niveau insuffisant : absence d’objectif clair ou objectif inadapté à la situation du patient.'
+      ]
+    },
     levels: [
       { value: '3', label: '3 - Praticien expérimenté' },
       { value: '2.25', label: '2,25 - Praticien avancé' },
@@ -106,6 +146,16 @@ const EVALUATION_CRITERIA = [
     label: 'Attitude et communication C5',
     image: 'assets/grille-items/communication.png',
     max: 2,
+    rewriteContext: {
+      focus: 'Capacité à adopter une posture professionnelle avec le binôme patient et l’enseignant. L’évaluation porte sur l’écoute, la clarté des consignes, l’adaptation du discours, la structuration des réponses et la justification des choix.',
+      rubric: [
+        'Niveau élevé : attitude professionnelle et empathique, consignes claires et adaptées ; réponses précises, structurées et bien justifiées.',
+        'Niveau intermédiaire haut : posture globalement adaptée et respectueuse, avec un manque possible de fluidité, de personnalisation ou de profondeur.',
+        'Niveau intermédiaire : attitude correcte mais maladresses possibles ; consignes parfois confuses ou trop techniques ; réponses globalement claires mais incomplètes.',
+        'Niveau fragile : attitude parfois inadaptée, écoute limitée ou consignes floues ; communication hésitante et justifications limitées.',
+        'Niveau insuffisant : attitude inappropriée ou absence de prise en compte du rôle du patient ; communication désorganisée ou non professionnelle.'
+      ]
+    },
     levels: [
       { value: '2', label: '2 - Praticien expérimenté' },
       { value: '1.5', label: '1,5 - Praticien avancé' },
@@ -261,6 +311,33 @@ function updateClock() {
   });
 }
 
+const SYNTHESIS_REWRITE_CONTEXTS = {
+  positivePoints: {
+    focus: 'Synthèse courte des éléments réussis, des compétences observées et des points d’appui de l’étudiant.',
+    rubric: [
+      'Valoriser ce qui est réellement observé.',
+      'Rester concret et exploitable.',
+      'Ne pas transformer un point simplement correct en performance remarquable.'
+    ]
+  },
+  improvementAreas: {
+    focus: 'Synthèse courte des éléments à travailler, formulée de manière constructive, concrète et exploitable.',
+    rubric: [
+      'Formuler les axes de progression sans jugement de personne.',
+      'Prioriser les points qui aideront l’étudiant à progresser.',
+      'Ne pas ajouter de difficulté qui n’est pas mentionnée.'
+    ]
+  },
+  lowScoreComment: {
+    focus: 'Commentaire explicite sur les éléments ayant motivé une vigilance particulière, une note insuffisante, un risque, une contre-indication ou un drapeau rouge.',
+    rubric: [
+      'Être clair sur les éléments observés qui justifient la vigilance.',
+      'Ne pas inventer de gravité non mentionnée.',
+      'Conserver un ton factuel, professionnel et traçable.'
+    ]
+  }
+};
+
 function getRewriteApiUrl() {
   const baseUrl = (window.ORAL_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
   return `${baseUrl}/api/rewrite`;
@@ -271,7 +348,7 @@ function dispatchTextUpdate(field) {
   field.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-async function rewriteCommentField(field, button, criterionLabel = '') {
+async function rewriteCommentField(field, button, rewriteContext = {}) {
   if (!field || !button) return;
   const text = field.value.trim();
   if (!text) {
@@ -288,7 +365,14 @@ async function rewriteCommentField(field, button, criterionLabel = '') {
     const response = await fetch(getRewriteApiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, criterion: criterionLabel })
+      body: JSON.stringify({
+        text,
+        criterion: rewriteContext.label || '',
+        score: rewriteContext.score || '',
+        max: rewriteContext.max || '',
+        focus: rewriteContext.focus || '',
+        rubric: rewriteContext.rubric || []
+      })
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.text) {
@@ -309,16 +393,34 @@ async function rewriteCommentField(field, button, criterionLabel = '') {
 function rewriteCriterionComment(itemId, button) {
   const item = EVALUATION_CRITERIA.find(criterion => criterion.id === itemId);
   const field = els.evaluationItems.querySelector(`[data-eval-comment="${itemId}"]`);
-  rewriteCommentField(field, button, item?.label || '');
+  const score = els.evaluationItems.querySelector(`[data-eval-score="${itemId}"]`)?.value || '';
+  rewriteCommentField(field, button, {
+    label: item?.label || '',
+    score,
+    max: item?.max || '',
+    focus: item?.rewriteContext?.focus || '',
+    rubric: item?.rewriteContext?.rubric || []
+  });
 }
 
 function rewritePreviewComment() {
   const item = EVALUATION_CRITERIA[previewCriterionIndex];
-  rewriteCommentField(els.criterionPreviewComment, els.criterionPreviewRewriteBtn, item?.label || '');
+  rewriteCommentField(els.criterionPreviewComment, els.criterionPreviewRewriteBtn, {
+    label: item?.label || '',
+    score: els.criterionPreviewScore.value || '',
+    max: item?.max || '',
+    focus: item?.rewriteContext?.focus || '',
+    rubric: item?.rewriteContext?.rubric || []
+  });
 }
 
 function rewriteSynthesisField(fieldKey, buttonKey, label) {
-  rewriteCommentField(els[fieldKey], els[buttonKey], label);
+  const context = SYNTHESIS_REWRITE_CONTEXTS[fieldKey] || {};
+  rewriteCommentField(els[fieldKey], els[buttonKey], {
+    label,
+    focus: context.focus || '',
+    rubric: context.rubric || []
+  });
 }
 
 function saveState(silent = false) {

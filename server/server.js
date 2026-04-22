@@ -12,13 +12,38 @@ const port = process.env.PORT || 3000;
 const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'https://98vqjbcdmz-crypto.github.io';
 
-const rewritePrompt = `Réécris le texte suivant de façon structurée, sobre et fidèle, sans inventer d'information.
-Conserve uniquement les informations présentes.
-Utilise une formulation professionnelle, concise et directement exploitable pour une fiche d'évaluation.
-Trame :
-1. Observation clinique
-2. Justification / raisonnement
-3. Point à consolider si nécessaire`;
+const rewritePrompt = `Réécris le commentaire d'évaluation suivant de façon claire, professionnelle et fidèle, sans inventer d'information.
+
+Cadre :
+évaluation d'oral en IFMK, pour des étudiants en fin de licence. Le niveau attendu est méthodologique : capacité à organiser le raisonnement, justifier les choix, mobiliser les données du bilan et adapter la pratique au cas clinique.
+
+Objectif :
+- transformer des notes rapides d'évaluateur en commentaire exploitable pour une fiche d'oral IFMK ;
+- conserver le sens, le niveau de réserve et les nuances du texte initial ;
+- ne pas ajouter d'éléments cliniques, pédagogiques ou factuels absents du texte initial ;
+- ne pas survaloriser ni dramatiser ;
+- ne pas déduire une note ou un niveau si ce n'est pas explicitement mentionné.
+
+Style attendu :
+- phrases courtes ;
+- ton sobre, évaluatif et bienveillant ;
+- formulation précise, sans jugement de personne ;
+- vocabulaire adapté à une évaluation de compétence en kinésithérapie ;
+- éviter les formulations trop générales.
+
+Structure attendue si le contenu le permet :
+1. Ce qui est observé
+2. Ce qui est satisfaisant ou pertinent
+3. Ce qui reste à préciser, justifier ou améliorer
+
+Utilise les repères qualitatifs uniquement pour contextualiser la formulation.
+Ne choisis pas la note.
+Ne suggère pas un niveau qui n'est pas indiqué par le commentaire initial ou la note déjà sélectionnée.
+Ne transforme pas une remarque mineure en défaut majeur.
+Ne transforme pas une difficulté importante en simple détail.
+
+Si le texte initial est très court, produire un commentaire court.
+Si une rubrique n'est pas pertinente, ne pas la créer artificiellement.`;
 
 app.use(express.json({ limit: '20kb' }));
 app.use((request, response, next) => {
@@ -51,6 +76,35 @@ function extractResponseText(payload) {
   return parts.join('\n').trim();
 }
 
+function normalizeRubric(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function buildRewriteInput({ criterion, score, max, focus, rubric, text }) {
+  const lines = [];
+  lines.push(`Item d'évaluation : ${criterion || 'Non précisé'}`);
+  if (score) {
+    lines.push(`Note sélectionnée pour l'item : ${score}${max ? ` / ${max}` : ''}`);
+  } else {
+    lines.push('Note sélectionnée pour l\'item : non renseignée');
+  }
+  if (focus) {
+    lines.push(`Contexte de l'item : ${focus}`);
+  }
+  if (rubric.length) {
+    lines.push('Repères qualitatifs condensés du barème :');
+    rubric.forEach(item => lines.push(`- ${item}`));
+  }
+  lines.push('');
+  lines.push('Commentaire brut à restructurer :');
+  lines.push(text);
+  return lines.join('\n');
+}
+
 app.get('/health', (_request, response) => {
   response.json({ ok: true });
 });
@@ -81,6 +135,10 @@ app.post('/api/rewrite', async (request, response) => {
 
   const text = String(request.body?.text || '').trim();
   const criterion = String(request.body?.criterion || '').trim();
+  const score = String(request.body?.score || '').trim();
+  const max = String(request.body?.max || '').trim();
+  const focus = String(request.body?.focus || '').trim();
+  const rubric = normalizeRubric(request.body?.rubric);
   if (!text) {
     response.status(400).json({ error: 'Le texte à restructurer est vide.' });
     return;
@@ -100,7 +158,7 @@ app.post('/api/rewrite', async (request, response) => {
       body: JSON.stringify({
         model,
         instructions: rewritePrompt,
-        input: `Item d'évaluation : ${criterion || 'Non précisé'}\n\nTexte à restructurer :\n${text}`,
+        input: buildRewriteInput({ criterion, score, max, focus, rubric, text }),
         temperature: 0.2
       })
     });
