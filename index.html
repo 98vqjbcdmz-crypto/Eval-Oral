@@ -501,6 +501,8 @@
 
     .eval-item select,
     .eval-item textarea,
+    .case-select,
+    .evaluation-details select,
     .evaluation-details textarea,
     .synthesis-grid textarea {
       width: 100%;
@@ -510,6 +512,13 @@
       background: #fff;
       color: var(--text);
       resize: vertical;
+    }
+
+    .case-select,
+    .evaluation-details select,
+    .eval-item select {
+      min-height: 44px;
+      resize: none;
     }
 
     .eval-item textarea {
@@ -794,6 +803,32 @@
       display: block;
     }
 
+    .history-result-card {
+      width: min(960px, 96vw);
+      max-height: 92vh;
+      text-align: left;
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .history-result-body .score {
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: var(--accent);
+      margin: 8px 0 12px;
+    }
+
+    .history-result-body section {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+
+    .history-result-body h4 {
+      margin: 0 0 6px;
+      color: var(--accent);
+    }
+
     @media (max-width: 1240px) {
       .content {
         grid-template-columns: 1fr;
@@ -939,7 +974,7 @@
             </div>
             <div id="currentName" class="name click-edit" title="Cliquer pour éditer la fiche">Aucun oral lancé</div>
             <div class="mini-label">Cas clinique</div>
-            <div id="currentCase" class="case-box click-edit" title="Cliquer pour éditer la fiche">Charge une session, prépare le binôme initial puis lance le premier oral.</div>
+            <select id="currentCaseSelect" class="case-select" title="Choisir le cas clinique"></select>
             <div id="currentIdentityBadge" class="identity-badge click-edit" title="Cliquer pour éditer la fiche">Carte d'identité non cochée</div>
             <div id="currentTimerBlock" class="timer">
               <div class="mini-label">Minuteur oral</div>
@@ -968,7 +1003,7 @@
             <div class="evaluation-details">
               <div>
                 <label for="evaluationCaseTitle" class="mini-label">Cas clinique</label>
-                <textarea id="evaluationCaseTitle"></textarea>
+                <select id="evaluationCaseTitle"></select>
               </div>
               <label class="checkbox"><input id="evaluationIdChecked" type="checkbox"> Carte d'identité vérifiée</label>
             </div>
@@ -1095,6 +1130,16 @@
       <div class="criterion-preview-frame">
         <img id="criterionPreviewImage" alt="">
       </div>
+    </div>
+  </div>
+
+  <div id="historyResultModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card history-result-card">
+      <div class="criterion-preview-head">
+        <h3 id="historyResultTitle">Résultat</h3>
+        <button id="closeHistoryResultBtn" class="modal-close" type="button" aria-label="Fermer">×</button>
+      </div>
+      <div id="historyResultBody" class="history-result-body"></div>
     </div>
   </div>
 

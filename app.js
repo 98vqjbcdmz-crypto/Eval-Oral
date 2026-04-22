@@ -149,7 +149,7 @@ const els = {
   queueList: document.getElementById('queueList'),
   historyList: document.getElementById('historyList'),
   currentName: document.getElementById('currentName'),
-  currentCase: document.getElementById('currentCase'),
+  currentCaseSelect: document.getElementById('currentCaseSelect'),
   currentIdentityBadge: document.getElementById('currentIdentityBadge'),
   currentTimerBlock: document.getElementById('currentTimerBlock'),
   currentTimerValue: document.getElementById('currentTimerValue'),
@@ -211,7 +211,11 @@ const els = {
   criterionPreviewModal: document.getElementById('criterionPreviewModal'),
   criterionPreviewTitle: document.getElementById('criterionPreviewTitle'),
   criterionPreviewImage: document.getElementById('criterionPreviewImage'),
-  closeCriterionPreviewBtn: document.getElementById('closeCriterionPreviewBtn')
+  closeCriterionPreviewBtn: document.getElementById('closeCriterionPreviewBtn'),
+  historyResultModal: document.getElementById('historyResultModal'),
+  historyResultTitle: document.getElementById('historyResultTitle'),
+  historyResultBody: document.getElementById('historyResultBody'),
+  closeHistoryResultBtn: document.getElementById('closeHistoryResultBtn')
 };
 
 function clone(obj) {
@@ -533,6 +537,28 @@ function syncAvailableCases() {
       ? [state.roles.current.caseTitle]
       : [];
   }
+}
+
+function renderCaseOptions(select, selectedValue, { includeEmpty = true, disabled = false } = {}) {
+  const cases = [...new Set([
+    ...(state.originalCases || []),
+    selectedValue || ''
+  ].filter(Boolean))];
+  select.innerHTML = '';
+  if (includeEmpty) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'Cas non renseigné';
+    select.appendChild(option);
+  }
+  cases.forEach(caseTitle => {
+    const option = document.createElement('option');
+    option.value = caseTitle;
+    option.textContent = caseTitle;
+    select.appendChild(option);
+  });
+  select.value = selectedValue || '';
+  select.disabled = disabled;
 }
 
 function recalculateUrn() {
@@ -1383,7 +1409,7 @@ function renderEvaluationForm() {
     : `${evaluation.studentName || 'Étudiant'} - ${evaluation.caseTitle || 'Cas non renseigné'}`;
   els.evaluationScore.textContent = `${formatScore(getEvaluationScore(evaluation))}/20`;
   if (document.activeElement !== els.evaluationCaseTitle) {
-    els.evaluationCaseTitle.value = evaluation.caseTitle || '';
+    renderCaseOptions(els.evaluationCaseTitle, evaluation.caseTitle || '');
   }
   els.evaluationIdChecked.checked = !!evaluation.idChecked;
   if (!els.evaluationItems.dataset.ready) {
@@ -1444,9 +1470,22 @@ function syncCurrentRoleFromEvaluation(evaluation) {
   if (state.editingEvaluation || !state.roles.current) return;
   state.roles.current.caseTitle = evaluation.caseTitle;
   state.roles.current.idChecked = !!evaluation.idChecked;
-  els.currentCase.textContent = evaluation.caseTitle || 'Cas non renseigné';
+  renderCaseOptions(els.currentCaseSelect, evaluation.caseTitle || '', { disabled: false });
   setIdentityBadge(els.currentIdentityBadge, state.roles.current);
   syncAvailableCases();
+}
+
+function updateCurrentCaseFromSelect() {
+  if (!state.roles.current) return;
+  ensureCurrentEvaluation();
+  const caseTitle = els.currentCaseSelect.value;
+  state.roles.current.caseTitle = caseTitle;
+  if (state.currentEvaluation) {
+    state.currentEvaluation.caseTitle = caseTitle;
+  }
+  syncAvailableCases();
+  render();
+  saveState(true);
 }
 
 function formatScore(score) {
@@ -1501,82 +1540,42 @@ function calculateEvaluationScore(evaluation) {
 function openHistoryResult(historyItem) {
   const evaluation = findEvaluationForHistory(historyItem);
   const score = findEvaluationScoreForHistory(historyItem);
-  const win = window.open('', '_blank', 'noopener,noreferrer,width=900,height=900');
-  if (!win) {
-    alert('Impossible d’ouvrir la fenêtre de résultat. Vérifiez le bloqueur de fenêtres.');
-    return;
+  els.historyResultTitle.textContent = historyItem.name || 'Résultat';
+  els.historyResultBody.innerHTML = buildHistoryResultContent(historyItem, evaluation, score);
+  const downloadBtn = els.historyResultBody.querySelector('[data-download-history]');
+  if (downloadBtn && evaluation) {
+    downloadBtn.addEventListener('click', () => downloadExamPdf(evaluation, score));
   }
-  const payload = evaluation ? encodeURIComponent(JSON.stringify({ evaluation, score })) : '';
-  win.document.write(buildHistoryResultHtml(historyItem, evaluation, score, payload));
-  win.document.close();
+  els.historyResultModal.classList.remove('hidden');
+  els.historyResultModal.setAttribute('aria-hidden', 'false');
 }
 
-function buildHistoryResultHtml(historyItem, evaluation, score, payload) {
+function closeHistoryResult() {
+  els.historyResultModal.classList.add('hidden');
+  els.historyResultModal.setAttribute('aria-hidden', 'true');
+  els.historyResultBody.innerHTML = '';
+}
+
+function buildHistoryResultContent(historyItem, evaluation, score) {
   const caseTitle = evaluation?.caseTitle || historyItem.caseTitle || 'Non renseigné';
   const criteriaHtml = evaluation
     ? EVALUATION_CRITERIA.map(item => {
       const criterion = evaluation.criteria?.[item.id] || {};
-      return `<section><h2>${escapeHtml(item.label)} - ${escapeHtml(criterion.score || 'non évalué')} / ${escapeHtml(String(item.max))}</h2><p>${escapeHtml(criterion.comment || 'Aucun commentaire.')}</p></section>`;
+      return `<section><h4>${escapeHtml(item.label)} - ${escapeHtml(criterion.score || 'non évalué')} / ${escapeHtml(String(item.max))}</h4><p>${escapeHtml(criterion.comment || 'Aucun commentaire.')}</p></section>`;
     }).join('')
     : '<p>Aucune fiche soumise pour ce passage.</p>';
-  const downloadScript = evaluation ? `
-    <script>
-      const payload = JSON.parse(decodeURIComponent('${payload}'));
-      ${createSimplePdf.toString()}
-      ${buildPdfContent.toString()}
-      ${wrapPdfLine.toString()}
-      ${chunkPdfLines.toString()}
-      ${toPdfLatin.toString()}
-      ${escapePdfText.toString()}
-      ${formatScore.toString()}
-      ${safeFilename.toString()}
-      const EVALUATION_CRITERIA = ${JSON.stringify(EVALUATION_CRITERIA)};
-      ${buildExamPdf.toString()}
-      ${buildExamFilename.toString()}
-      document.getElementById('download').addEventListener('click', () => {
-        const pdf = buildExamPdf(payload.evaluation, payload.score);
-        const blob = new Blob([pdf], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = buildExamFilename(payload.evaluation);
-        a.click();
-        URL.revokeObjectURL(url);
-      });
-    </script>` : '';
-  return `<!doctype html>
-    <html lang="fr">
-    <head>
-      <meta charset="utf-8">
-      <title>Résultat ${escapeHtml(historyItem.name || '')}</title>
-      <style>
-        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 28px; color: #17324d; background: #f6f9fd; }
-        main { max-width: 920px; margin: 0 auto; background: #fff; border: 1px solid #dfe8f3; border-radius: 18px; padding: 24px; box-shadow: 0 14px 34px rgba(22,50,77,.1); }
-        h1 { margin-top: 0; }
-        h2 { color: #204f86; font-size: 1rem; margin-bottom: 8px; }
-        section { border-top: 1px solid #dfe8f3; padding-top: 14px; margin-top: 14px; }
-        .score { font-size: 2.8rem; font-weight: 900; color: #204f86; }
-        button { border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 800; background: #198754; color: white; cursor: pointer; }
-        .muted { color: #64788d; }
-      </style>
-    </head>
-    <body>
-      <main>
-        <h1>${escapeHtml(historyItem.name || 'Étudiant')}</h1>
+  return `
         <p class="muted">Cas clinique : ${escapeHtml(caseTitle)}</p>
         <p class="muted">Carte d'identité : ${escapeHtml(evaluation?.idChecked ? 'vérifiée' : 'non cochée')}</p>
         <div class="score">${evaluation ? `${escapeHtml(formatScore(score))}/20` : '—'}</div>
-        ${evaluation ? '<button id="download">Télécharger la fiche PDF</button>' : ''}
+        ${evaluation ? '<button class="btn-success" type="button" data-download-history>Télécharger la fiche PDF</button>' : ''}
         ${criteriaHtml}
         ${evaluation ? `
-          <section><h2>Points positifs</h2><p>${escapeHtml(evaluation.positivePoints || 'Aucun commentaire.')}</p></section>
-          <section><h2>Axes d'amélioration</h2><p>${escapeHtml(evaluation.improvementAreas || 'Aucun commentaire.')}</p></section>
-          <section><h2>Commentaire si note &lt; 10, risque ou drapeau rouge</h2><p>${escapeHtml(evaluation.lowScoreComment || 'Aucun commentaire.')}</p></section>
+          <section><h4>Points positifs</h4><p>${escapeHtml(evaluation.positivePoints || 'Aucun commentaire.')}</p></section>
+          <section><h4>Axes d'amélioration</h4><p>${escapeHtml(evaluation.improvementAreas || 'Aucun commentaire.')}</p></section>
+          <section><h4>Commentaire si note &lt; 10, risque ou drapeau rouge</h4><p>${escapeHtml(evaluation.lowScoreComment || 'Aucun commentaire.')}</p></section>
         ` : ''}
-      </main>
-      ${downloadScript}
-    </body>
-    </html>`;
+  `;
 }
 
 function escapeHtml(value) {
@@ -1627,7 +1626,7 @@ function renderMainRoles() {
   const patient = state.roles.patient;
 
   els.currentName.textContent = current?.name || 'Aucun oral lancé';
-  els.currentCase.textContent = current?.caseTitle || 'Charge une session, prépare le binôme initial puis lance le premier oral.';
+  renderCaseOptions(els.currentCaseSelect, current?.caseTitle || '', { disabled: !current });
   setIdentityBadge(els.currentIdentityBadge, current);
   applyTimerVisual(state.timers.current, els.currentTimerBlock, els.currentTimerValue, els.currentTimerBar);
 
@@ -1778,9 +1777,9 @@ els.pauseCurrentTimerBtn.addEventListener('click', () => stopTimer('current'));
 els.resetCurrentTimerBtn.addEventListener('click', () => resetTimer('current'));
 els.submitExamBtn.addEventListener('click', saveAndFinishEvaluation);
 els.currentName.addEventListener('click', openCurrentEvaluationEditor);
-els.currentCase.addEventListener('click', openCurrentEvaluationEditor);
+els.currentCaseSelect.addEventListener('change', updateCurrentCaseFromSelect);
 els.currentIdentityBadge.addEventListener('click', openCurrentEvaluationEditor);
-els.evaluationCaseTitle.addEventListener('input', updateEvaluationFromForm);
+els.evaluationCaseTitle.addEventListener('change', updateEvaluationFromForm);
 els.evaluationIdChecked.addEventListener('change', updateEvaluationFromForm);
 els.positivePoints.addEventListener('input', updateEvaluationFromForm);
 els.improvementAreas.addEventListener('input', updateEvaluationFromForm);
@@ -1801,6 +1800,12 @@ els.criterionPreviewModal.addEventListener('click', (event) => {
     closeCriterionPreview();
   }
 });
+els.closeHistoryResultBtn.addEventListener('click', closeHistoryResult);
+els.historyResultModal.addEventListener('click', (event) => {
+  if (event.target === els.historyResultModal) {
+    closeHistoryResult();
+  }
+});
 
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !els.drawModal.classList.contains('hidden')) {
@@ -1808,6 +1813,9 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.key === 'Escape' && !els.criterionPreviewModal.classList.contains('hidden')) {
     closeCriterionPreview();
+  }
+  if (event.key === 'Escape' && !els.historyResultModal.classList.contains('hidden')) {
+    closeHistoryResult();
   }
 });
 
