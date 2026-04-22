@@ -607,7 +607,7 @@
     .history-row {
       width: 100%;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       gap: 8px;
       align-items: center;
       border-radius: 14px;
@@ -637,6 +637,44 @@
     .history-name:hover,
     .history-view:hover {
       text-decoration: underline;
+    }
+
+    .history-badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    .mini-badge,
+    .flow-stage {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #f7fbff;
+      color: var(--muted);
+      font-size: .74rem;
+      font-weight: 900;
+      padding: 4px 7px;
+      white-space: nowrap;
+    }
+
+    .mini-badge.ok {
+      background: #eaf8ef;
+      color: #166534;
+      border-color: #bfe7ca;
+    }
+
+    .mini-badge.warn {
+      background: #fff5df;
+      color: #925b00;
+      border-color: #f0d28f;
+    }
+
+    .flow-stage {
+      display: inline-flex;
+      margin-bottom: 10px;
+      background: #eaf1fb;
+      color: var(--accent);
     }
 
     .footer-bar {
@@ -1076,8 +1114,9 @@
             <div class="mini-label">Rôle</div>
             <div id="patientNote" class="case-box patient-note">Le rôle patient sera occupé par l'étudiant qui était évalué au tour précédent, sauf pour le tout premier oral où le binôme initial s'intervertit.</div>
             <div class="card-actions">
-              <button id="nextTurnBtn" class="btn-dark">Passage terminé / rotation</button>
+              <button id="nextTurnBtn" class="btn-dark">Rotation sans fiche</button>
               <button id="swapBootstrapBtn" class="btn-secondary">Faire passer l'autre du binôme initial</button>
+              <button id="undoRotationBtn" class="btn-warning">Annuler dernière rotation</button>
             </div>
           </article>
 
@@ -1086,6 +1125,7 @@
               <div class="card-title">Vue d'ensemble</div>
               <span class="tag red">Pilotage</span>
             </div>
+            <div id="flowStage" class="flow-stage">Configuration</div>
             <div class="status-line" id="overviewStatus">En attente de configuration.</div>
             <div style="margin-top: 14px;" class="mini-label">Cas disponibles pour le prochain tirage</div>
             <div id="casesLeft" class="name" style="font-size: 2.2rem;">0</div>

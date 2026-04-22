@@ -35,8 +35,10 @@ const initialState = () => ({
   drawPreview: null,
   currentEvaluation: null,
   editingEvaluation: null,
+  lastRotationBackup: null,
   sessionLoadedAt: null,
-  awaitingBootstrapSwap: false
+  awaitingBootstrapSwap: false,
+  initialSecondPass: false
 });
 
 let state = initialState();
@@ -195,6 +197,8 @@ const els = {
   patientNote: document.getElementById('patientNote'),
   nextTurnBtn: document.getElementById('nextTurnBtn'),
   swapBootstrapBtn: document.getElementById('swapBootstrapBtn'),
+  undoRotationBtn: document.getElementById('undoRotationBtn'),
+  flowStage: document.getElementById('flowStage'),
   overviewStatus: document.getElementById('overviewStatus'),
   casesLeft: document.getElementById('casesLeft'),
   nextStudentPreview: document.getElementById('nextStudentPreview'),
@@ -286,9 +290,13 @@ function loadState() {
     state.drawPreview = state.drawPreview || null;
     state.currentEvaluation = state.currentEvaluation || null;
     state.editingEvaluation = state.editingEvaluation || null;
+    state.lastRotationBackup = state.lastRotationBackup || null;
     state.submittedEvaluations = state.submittedEvaluations || [];
     if (typeof state.awaitingBootstrapSwap !== 'boolean') {
       state.awaitingBootstrapSwap = false;
+    }
+    if (typeof state.initialSecondPass !== 'boolean') {
+      state.initialSecondPass = false;
     }
     syncAvailableCases();
   } catch (error) {
@@ -350,6 +358,9 @@ function startTimer(key) {
   clearTimerInterval(key);
   const timer = state.timers[key];
   if (!timer) return;
+  if (key === 'current') {
+    state.lastRotationBackup = null;
+  }
   updateRunningTimer(key);
   if (timer.remaining <= 0) {
     timer.remaining = timer.duration;
@@ -592,6 +603,7 @@ function pauseEvaluations() {
   state.roles.nextPrep = null;
   state.currentEvaluation = null;
   state.awaitingBootstrapSwap = false;
+  state.initialSecondPass = false;
   ['current', 'prep', 'nextPrep', 'bootA', 'bootB'].forEach(key => resetTimer(key, true));
   syncAvailableCases();
   render();
@@ -614,6 +626,7 @@ function resumeBootstrapAfterPause() {
   state.roles.nextPrep = null;
   state.currentEvaluation = null;
   state.awaitingBootstrapSwap = false;
+  state.initialSecondPass = false;
   ['current', 'prep', 'nextPrep', 'bootA', 'bootB'].forEach(key => resetTimer(key, true));
   syncAvailableCases();
   render();
@@ -734,6 +747,9 @@ function confirmDraw() {
   if (!targetStudent) return;
 
   targetStudent.caseTitle = modalFinalCase;
+  targetStudent.caseWasDrawn = true;
+  targetStudent.caseCorrected = false;
+  targetStudent.previousCaseTitle = '';
   const label = targetStudent.name;
   closeDrawModal();
   syncAvailableCases();
@@ -796,6 +812,7 @@ function startLive(firstCurrentKey) {
   state.roles.prep = shiftNextStudent();
   state.phase = 'live';
   state.awaitingBootstrapSwap = true;
+  state.initialSecondPass = false;
   resetTimer('current', true);
   resetTimer('prep', true);
   syncAvailableCases();
@@ -816,6 +833,8 @@ function archiveCurrentPassage() {
     name: state.roles.current.name,
     caseTitle: state.roles.current.caseTitle || 'Cas non renseigné',
     idChecked: !!state.roles.current.idChecked,
+    caseCorrected: !!state.roles.current.caseCorrected,
+    previousCaseTitle: state.roles.current.previousCaseTitle || '',
     evaluation,
     score,
     endedAt: new Date().toISOString()
@@ -869,11 +888,14 @@ function rotateTurn() {
     return;
   }
 
+  const ok = confirm('Effectuer une rotation sans enregistrer de fiche d’évaluation ? À utiliser seulement en secours.');
+  if (!ok) return;
   finishAndAdvancePassage({ archive: true });
 }
 
 function finishAndAdvancePassage({ archive = true } = {}) {
   if (!state.roles.current) return;
+  captureRotationBackup();
 
   stopTimer('current');
   if (archive) {
@@ -888,6 +910,7 @@ function finishAndAdvancePassage({ archive = true } = {}) {
     state.roles.patient = previousCurrent;
     state.roles.current = previousPatient;
     state.awaitingBootstrapSwap = false;
+    state.initialSecondPass = true;
     resetTimer('current', true);
     syncAvailableCases();
     render();
@@ -897,6 +920,7 @@ function finishAndAdvancePassage({ archive = true } = {}) {
   }
 
   stopTimer('prep');
+  state.initialSecondPass = false;
 
   const leavingStudent = state.roles.patient ? clone(state.roles.patient) : null;
   const previousCurrent = clone(state.roles.current);
@@ -947,6 +971,54 @@ function finishAndAdvancePassage({ archive = true } = {}) {
     : 'Rotation effectuée.');
 }
 
+function captureRotationBackup() {
+  state.lastRotationBackup = {
+    createdAt: new Date().toISOString(),
+    snapshot: clone({
+      phase: state.phase,
+      queue: state.queue,
+      availableCases: state.availableCases,
+      usedCases: state.usedCases,
+      history: state.history,
+      submittedEvaluations: state.submittedEvaluations,
+      roles: state.roles,
+      timers: state.timers,
+      currentEvaluation: state.currentEvaluation,
+      editingEvaluation: state.editingEvaluation,
+      awaitingBootstrapSwap: state.awaitingBootstrapSwap,
+      initialSecondPass: state.initialSecondPass
+    })
+  };
+}
+
+function undoLastRotation() {
+  if (!state.lastRotationBackup?.snapshot) {
+    alert('Aucune rotation récente à annuler.');
+    return;
+  }
+  const ok = confirm('Annuler la dernière rotation et revenir à l’étape précédente ?');
+  if (!ok) return;
+  Object.keys(intervals).forEach(key => stopTimer(key, true));
+  const snapshot = clone(state.lastRotationBackup.snapshot);
+  state.phase = snapshot.phase;
+  state.queue = snapshot.queue;
+  state.availableCases = snapshot.availableCases;
+  state.usedCases = snapshot.usedCases;
+  state.history = snapshot.history;
+  state.submittedEvaluations = snapshot.submittedEvaluations;
+  state.roles = snapshot.roles;
+  state.timers = snapshot.timers;
+  state.currentEvaluation = snapshot.currentEvaluation;
+  state.editingEvaluation = snapshot.editingEvaluation;
+  state.awaitingBootstrapSwap = snapshot.awaitingBootstrapSwap;
+  state.initialSecondPass = !!snapshot.initialSecondPass;
+  state.lastRotationBackup = null;
+  syncAvailableCases();
+  render();
+  saveState();
+  showToast('Dernière rotation annulée.');
+}
+
 function exportSession() {
   const data = {
     exportedAt: new Date().toISOString(),
@@ -970,8 +1042,9 @@ function saveAndFinishEvaluation() {
     return;
   }
   const score = getEvaluationScore(evaluation);
-  if (score < 10 && !evaluation.lowScoreComment.trim()) {
-    const ok = confirm('La note est inférieure à 10/20 et le commentaire dédié est vide. Enregistrer quand même ?');
+  const warnings = getEvaluationWarnings(evaluation, score);
+  if (warnings.length) {
+    const ok = confirm(`Points à vérifier avant de terminer :\n\n- ${warnings.join('\n- ')}\n\nEnregistrer quand même ?`);
     if (!ok) return;
   }
   const editRef = state.editingEvaluation
@@ -991,6 +1064,8 @@ function saveAndFinishEvaluation() {
       name: submitted.studentName,
       caseTitle: submitted.caseTitle || 'Cas non renseigné',
       idChecked: !!submitted.idChecked,
+      caseCorrected: !!submitted.caseCorrected,
+      previousCaseTitle: submitted.previousCaseTitle || '',
       evaluation: clone(submitted),
       score,
       endedAt: findHistoryItemByKey(submitted.key)?.endedAt || submitted.submittedAt
@@ -1003,6 +1078,8 @@ function saveAndFinishEvaluation() {
       name: submitted.studentName,
       caseTitle: submitted.caseTitle || 'Cas non renseigné',
       idChecked: !!submitted.idChecked,
+      caseCorrected: !!submitted.caseCorrected,
+      previousCaseTitle: submitted.previousCaseTitle || '',
       evaluation: clone(submitted),
       score,
       endedAt: new Date().toISOString()
@@ -1015,6 +1092,27 @@ function saveAndFinishEvaluation() {
   if (confirm('Fiche enregistrée. Télécharger le PDF maintenant ?')) {
     downloadExamPdf(submitted, score);
   }
+}
+
+function getEvaluationWarnings(evaluation, score) {
+  const warnings = [];
+  if (!evaluation.caseTitle) {
+    warnings.push('cas clinique non renseigné');
+  }
+  if (!evaluation.idChecked) {
+    warnings.push('carte d’identité non cochée');
+  }
+  const missingCriteria = EVALUATION_CRITERIA.filter(item => {
+    const scoreValue = evaluation.criteria?.[item.id]?.score;
+    return scoreValue === '' || scoreValue === undefined || scoreValue === null;
+  }).length;
+  if (missingCriteria) {
+    warnings.push(`${missingCriteria} item${missingCriteria > 1 ? 's' : ''} sans note`);
+  }
+  if (score < 10 && !evaluation.lowScoreComment.trim()) {
+    warnings.push('note < 10 sans commentaire dédié');
+  }
+  return warnings;
 }
 
 function downloadExamPdf(evaluation, score = calculateEvaluationScore(evaluation)) {
@@ -1116,11 +1214,12 @@ function buildExamPdf(evaluation, score) {
     `Nom / prénom : ${evaluation.studentName || 'Non renseigné'}`,
     `Session : ${evaluation.sessionName || 'UI10-S6'}`,
     `Cas clinique : ${evaluation.caseTitle || 'Non renseigné'}`,
+    evaluation.caseCorrected ? `Cas corrigé depuis : ${evaluation.previousCaseTitle || 'non renseigné'}` : '',
     `Carte d'identité : ${evaluation.idChecked ? 'vérifiée' : 'non cochée'}`,
     `Date : ${new Date().toLocaleString('fr-FR')}`,
     `Note : ${formatScore(score)}/20`,
     ''
-  ];
+  ].filter(line => line !== '');
 
   EVALUATION_CRITERIA.forEach(item => {
     const criterion = evaluation.criteria?.[item.id] || {};
@@ -1171,6 +1270,9 @@ function buildDailySummaryPdf(evaluations) {
   sorted.forEach((item, index) => {
     lines.push(`${index + 1}. ${item.studentName || 'Non renseigné'} - ${formatScore(item.score || 0)}/20`);
     lines.push(`Cas : ${item.caseTitle || 'Non renseigné'}`);
+    if (item.caseCorrected) {
+      lines.push(`Cas corrigé depuis : ${item.previousCaseTitle || 'non renseigné'}`);
+    }
     lines.push(`Points positifs : ${item.positivePoints || ''}`);
     lines.push(`Axes d'amélioration : ${item.improvementAreas || ''}`);
     if ((Number(item.score) || 0) < 10 || item.lowScoreComment) {
@@ -1319,21 +1421,52 @@ function renderHistoryList() {
     const nameBtn = document.createElement('button');
     nameBtn.className = 'history-name';
     nameBtn.type = 'button';
-    nameBtn.textContent = `${item.name} - ${item.caseTitle}${findEvaluationForHistory(item) ? ` - ${formatScore(findEvaluationScoreForHistory(item))}/20` : ' - fiche non soumise'}`;
+    const evaluation = findEvaluationForHistory(item);
+    nameBtn.textContent = `${item.name} - ${item.caseTitle}${evaluation ? ` - ${formatScore(findEvaluationScoreForHistory(item))}/20` : ' - fiche non soumise'}`;
     nameBtn.title = 'Rééditer la fiche';
     nameBtn.addEventListener('click', () => editHistoryEvaluation(item));
+
+    const badges = document.createElement('div');
+    badges.className = 'history-badges';
+    buildHistoryBadges(item, evaluation).forEach(badge => badges.appendChild(badge));
 
     const viewBtn = document.createElement('button');
     viewBtn.className = 'history-view';
     viewBtn.type = 'button';
     viewBtn.textContent = 'Voir';
-    viewBtn.title = 'Ouvrir la fiche dans une autre fenêtre';
+    viewBtn.title = 'Ouvrir la fiche en aperçu';
     viewBtn.addEventListener('click', () => openHistoryResult(item));
 
     row.appendChild(nameBtn);
+    row.appendChild(badges);
     row.appendChild(viewBtn);
     els.historyList.appendChild(row);
   });
+}
+
+function buildHistoryBadges(historyItem, evaluation) {
+  const badges = [];
+  if (evaluation && !isEvaluationIncomplete(evaluation)) {
+    badges.push(createBadge('PDF prêt', 'ok'));
+  } else {
+    badges.push(createBadge('fiche incomplète', 'warn'));
+  }
+  if (evaluation?.caseCorrected || historyItem.caseCorrected) {
+    badges.push(createBadge('cas corrigé', 'warn'));
+  }
+  return badges;
+}
+
+function createBadge(label, tone = '') {
+  const badge = document.createElement('span');
+  badge.className = `mini-badge ${tone}`.trim();
+  badge.textContent = label;
+  return badge;
+}
+
+function isEvaluationIncomplete(evaluation) {
+  if (!evaluation) return true;
+  return !!getEvaluationWarnings(evaluation, Number(evaluation.score ?? calculateEvaluationScore(evaluation))).length;
 }
 
 function setIdentityBadge(el, student) {
@@ -1346,6 +1479,9 @@ function defaultEvaluation(student = state.roles.current) {
     studentName: student?.name || '',
     caseTitle: student?.caseTitle || '',
     idChecked: !!student?.idChecked,
+    caseWasDrawn: !!student?.caseWasDrawn,
+    caseCorrected: !!student?.caseCorrected,
+    previousCaseTitle: student?.previousCaseTitle || '',
     sessionName: 'UI10-S6',
     startedAt: new Date().toISOString(),
     criteria: Object.fromEntries(EVALUATION_CRITERIA.map(item => [item.id, { score: '', comment: '' }])),
@@ -1359,6 +1495,9 @@ function hydrateEvaluationCriteria(evaluation) {
   if (!evaluation) return null;
   evaluation.caseTitle = evaluation.caseTitle || '';
   evaluation.idChecked = !!evaluation.idChecked;
+  evaluation.caseWasDrawn = !!evaluation.caseWasDrawn;
+  evaluation.caseCorrected = !!evaluation.caseCorrected;
+  evaluation.previousCaseTitle = evaluation.previousCaseTitle || '';
   evaluation.criteria = evaluation.criteria || {};
   EVALUATION_CRITERIA.forEach(item => {
     evaluation.criteria[item.id] = evaluation.criteria[item.id] || { score: '', comment: '' };
@@ -1450,7 +1589,10 @@ function renderEvaluationForm() {
 function updateEvaluationFromForm() {
   const evaluation = getActiveEvaluation();
   if (!evaluation) return;
-  evaluation.caseTitle = els.evaluationCaseTitle.value.trim();
+  const previousCase = evaluation.caseTitle || '';
+  const nextCase = els.evaluationCaseTitle.value.trim();
+  markCaseCorrection(evaluation, previousCase, nextCase);
+  evaluation.caseTitle = nextCase;
   evaluation.idChecked = els.evaluationIdChecked.checked;
   EVALUATION_CRITERIA.forEach(item => {
     evaluation.criteria[item.id] = {
@@ -1470,6 +1612,9 @@ function syncCurrentRoleFromEvaluation(evaluation) {
   if (state.editingEvaluation || !state.roles.current) return;
   state.roles.current.caseTitle = evaluation.caseTitle;
   state.roles.current.idChecked = !!evaluation.idChecked;
+  state.roles.current.caseCorrected = !!evaluation.caseCorrected;
+  state.roles.current.previousCaseTitle = evaluation.previousCaseTitle || '';
+  state.roles.current.caseWasDrawn = !!evaluation.caseWasDrawn;
   renderCaseOptions(els.currentCaseSelect, evaluation.caseTitle || '', { disabled: false });
   setIdentityBadge(els.currentIdentityBadge, state.roles.current);
   syncAvailableCases();
@@ -1478,14 +1623,24 @@ function syncCurrentRoleFromEvaluation(evaluation) {
 function updateCurrentCaseFromSelect() {
   if (!state.roles.current) return;
   ensureCurrentEvaluation();
+  const previousCase = state.roles.current.caseTitle || '';
   const caseTitle = els.currentCaseSelect.value;
+  markCaseCorrection(state.roles.current, previousCase, caseTitle);
   state.roles.current.caseTitle = caseTitle;
   if (state.currentEvaluation) {
+    markCaseCorrection(state.currentEvaluation, previousCase, caseTitle);
     state.currentEvaluation.caseTitle = caseTitle;
+    state.currentEvaluation.caseWasDrawn = !!state.roles.current.caseWasDrawn;
   }
   syncAvailableCases();
   render();
   saveState(true);
+}
+
+function markCaseCorrection(target, previousCase, nextCase) {
+  if (!target || !previousCase || previousCase === nextCase) return;
+  target.caseCorrected = true;
+  target.previousCaseTitle = target.previousCaseTitle || previousCase;
 }
 
 function formatScore(score) {
@@ -1511,6 +1666,8 @@ function editHistoryEvaluation(historyItem) {
   });
   state.editingEvaluation = hydrateEvaluationCriteria({
     ...clone(evaluation),
+    caseCorrected: !!(evaluation.caseCorrected || historyItem.caseCorrected),
+    previousCaseTitle: evaluation.previousCaseTitle || historyItem.previousCaseTitle || '',
     key: evaluation.key || historyItem.key || evaluationKey(evaluation),
     _historyKey: historyItem.key || '',
     _historyName: historyItem.name || '',
@@ -1566,6 +1723,7 @@ function buildHistoryResultContent(historyItem, evaluation, score) {
     : '<p>Aucune fiche soumise pour ce passage.</p>';
   return `
         <p class="muted">Cas clinique : ${escapeHtml(caseTitle)}</p>
+        ${(evaluation?.caseCorrected || historyItem.caseCorrected) ? `<p class="muted">Cas corrigé depuis : ${escapeHtml(evaluation?.previousCaseTitle || historyItem.previousCaseTitle || 'non renseigné')}</p>` : ''}
         <p class="muted">Carte d'identité : ${escapeHtml(evaluation?.idChecked ? 'vérifiée' : 'non cochée')}</p>
         <div class="score">${evaluation ? `${escapeHtml(formatScore(score))}/20` : '—'}</div>
         ${evaluation ? '<button class="btn-success" type="button" data-download-history>Télécharger la fiche PDF</button>' : ''}
@@ -1631,7 +1789,7 @@ function renderMainRoles() {
   applyTimerVisual(state.timers.current, els.currentTimerBlock, els.currentTimerValue, els.currentTimerBar);
 
   els.prepName.textContent = prep?.name || '—';
-  els.prepCase.textContent = prep?.caseTitle || 'Le prochain étudiant apparaîtra ici.';
+  els.prepCase.textContent = prep?.caseTitle ? `Cas préparé, non retiré de l'urne : ${prep.caseTitle}` : 'Le prochain étudiant apparaîtra ici.';
   setIdentityBadge(els.prepIdentityBadge, prep);
   els.prepIdCheckbox.checked = !!prep?.idChecked;
   els.prepIdCheckbox.disabled = !prep;
@@ -1639,7 +1797,7 @@ function renderMainRoles() {
   applyTimerVisual(state.timers.prep, els.prepTimerBlock, els.prepTimerValue, els.prepTimerBar);
 
   els.nextPrepName.textContent = nextPrep?.name || '—';
-  els.nextPrepCase.textContent = nextPrep?.caseTitle || 'Aucun étudiant entré pour le moment.';
+  els.nextPrepCase.textContent = nextPrep?.caseTitle ? `Cas préparé, non retiré de l'urne : ${nextPrep.caseTitle}` : 'Aucun étudiant entré pour le moment.';
   setIdentityBadge(els.nextPrepIdentityBadge, nextPrep);
   els.nextPrepIdCheckbox.checked = !!nextPrep?.idChecked;
   els.nextPrepIdCheckbox.disabled = !nextPrep;
@@ -1657,6 +1815,7 @@ function renderMainRoles() {
 
   els.nextTurnBtn.disabled = !current;
   els.swapBootstrapBtn.disabled = !state.awaitingBootstrapSwap;
+  els.undoRotationBtn.disabled = !state.lastRotationBackup;
   els.pauseEvaluationsBtn.disabled = state.phase !== 'live';
   els.dailySummaryBtn.disabled = !(state.submittedEvaluations || []).length;
 }
@@ -1665,20 +1824,25 @@ function renderOverview() {
   syncAvailableCases();
 
   if (state.phase === 'setup') {
+    els.flowStage.textContent = 'Configuration';
     els.overviewStatus.textContent = 'En attente de configuration.';
   } else if (state.phase === 'bootstrap') {
+    els.flowStage.textContent = 'Préparation initiale';
     els.overviewStatus.textContent = 'Binôme initial en préparation. Aucun cas n\'est retiré avant le début d\'un passage.';
   } else if (state.awaitingBootstrapSwap) {
     const current = state.roles.current?.name || '—';
     const patient = state.roles.patient?.name || '—';
     const prep = state.roles.prep?.name || 'aucun étudiant';
     const nextPrep = state.roles.nextPrep?.name;
-    els.overviewStatus.textContent = `Premier oral : ${current} passe, ${patient} fait le patient, ${prep} prépare${nextPrep ? `, ${nextPrep} est aussi entré en préparation` : ''}. Après ce passage, faites passer l'autre étudiant du binôme initial.`;
+    els.flowStage.textContent = 'Binôme initial 1/2';
+    els.overviewStatus.textContent = `Premier oral : ${current} passe, ${patient} fait le patient, ${prep} prépare${nextPrep ? `, ${nextPrep} est aussi entré en préparation` : ''}. À l’enregistrement, l’autre étudiant du binôme initial sera prêt à passer.`;
   } else if (state.phase === 'live') {
     const current = state.roles.current?.name || '—';
     const prep = state.roles.prep?.name || 'aucun étudiant';
     const nextPrep = state.roles.nextPrep?.name;
-    els.overviewStatus.textContent = `Oral en cours : ${current}. Préparation parallèle : ${prep}${nextPrep ? `. Préparation suivante : ${nextPrep}` : ''}. Le tirage exclut seulement le cas du passage en cours.`;
+    const stage = state.initialSecondPass ? 'Binôme initial 2/2' : 'Rotation standard';
+    els.flowStage.textContent = stage;
+    els.overviewStatus.textContent = `Oral en cours : ${current}. Préparation parallèle : ${prep}${nextPrep ? `. Préparation suivante : ${nextPrep}` : ''}. Les cas préparés ne sont pas retirés de l’urne ; seul le cas du passage en cours est exclu.`;
   }
 
   els.casesLeft.textContent = state.availableCases.length;
@@ -1787,6 +1951,7 @@ els.lowScoreComment.addEventListener('input', updateEvaluationFromForm);
 
 els.nextTurnBtn.addEventListener('click', rotateTurn);
 els.swapBootstrapBtn.addEventListener('click', swapInitialRoles);
+els.undoRotationBtn.addEventListener('click', undoLastRotation);
 els.restoreCasesBtn.addEventListener('click', recalculateUrn);
 els.pauseEvaluationsBtn.addEventListener('click', pauseEvaluations);
 els.dailySummaryBtn.addEventListener('click', generateDailySummaryPdf);
