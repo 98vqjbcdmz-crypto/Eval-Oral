@@ -20,6 +20,14 @@ npm start
 
 La page GitHub peut ensuite utiliser les boutons `Structurer`.
 
+Si le navigateur affiche `Load failed`, ouvrir plutôt le dashboard servi localement :
+
+```text
+http://localhost:3000/
+```
+
+Dans ce mode, la page et l'API utilisent la même adresse locale, ce qui évite les blocages navigateur entre GitHub Pages et `localhost`.
+
 ## Configuration utile
 
 - `OPENAI_API_KEY` : clé OpenAI, jamais à committer.

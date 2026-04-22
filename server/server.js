@@ -1,8 +1,13 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicRoot = path.resolve(__dirname, '..');
 const port = process.env.PORT || 3000;
 const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'https://98vqjbcdmz-crypto.github.io';
@@ -49,6 +54,23 @@ function extractResponseText(payload) {
 app.get('/health', (_request, response) => {
   response.json({ ok: true });
 });
+
+app.get(['/', '/index.html'], (_request, response) => {
+  response.sendFile(path.join(publicRoot, 'index.html'));
+});
+
+app.get('/retro.html', (_request, response) => {
+  response.sendFile(path.join(publicRoot, 'retro.html'));
+});
+
+app.get(['/app.js', '/config.js', '/logo-ifmk.png'], (request, response) => {
+  response.sendFile(path.join(publicRoot, request.path));
+});
+
+app.use('/assets', express.static(path.join(publicRoot, 'assets'), {
+  dotfiles: 'ignore',
+  fallthrough: false
+}));
 
 app.post('/api/rewrite', async (request, response) => {
   const apiKey = process.env.OPENAI_API_KEY;
