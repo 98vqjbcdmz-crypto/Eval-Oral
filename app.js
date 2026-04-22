@@ -296,7 +296,7 @@ async function rewriteCommentField(field, button, criterionLabel = '') {
     field.focus();
   } catch (error) {
     console.error(error);
-    alert('Impossible de structurer le commentaire. Vérifie que le serveur local est lancé.');
+    alert(`Impossible de structurer le commentaire. ${error.message || 'Vérifie que le serveur local est lancé.'}`);
   } finally {
     button.disabled = false;
     button.textContent = initialLabel;

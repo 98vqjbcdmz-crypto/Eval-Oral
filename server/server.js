@@ -16,6 +16,10 @@ Trame :
 3. Point à consolider si nécessaire`;
 
 app.use(express.json({ limit: '20kb' }));
+app.use((request, response, next) => {
+  response.setHeader('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
 app.use(cors({
   origin(origin, callback) {
     if (!origin || origin === allowedOrigin || origin.startsWith('http://localhost')) {
