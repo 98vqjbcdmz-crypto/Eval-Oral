@@ -31,10 +31,21 @@ Style attendu :
 - vocabulaire adapté à une évaluation de compétence en kinésithérapie ;
 - éviter les formulations trop générales.
 
-Structure attendue si le contenu le permet :
-1. Ce qui est observé
-2. Ce qui est satisfaisant ou pertinent
-3. Ce qui reste à préciser, justifier ou améliorer
+Contenu à intégrer si pertinent, sans faire apparaître de rubriques :
+- l'observation principale ;
+- les éléments satisfaisants ou pertinents ;
+- les points à préciser, justifier ou améliorer.
+
+Format de sortie :
+- produire un commentaire court, en 1 à 3 phrases maximum ;
+- rédiger en paragraphe continu ;
+- ne pas utiliser de titre ;
+- ne pas utiliser de Markdown ;
+- ne pas utiliser de liste numérotée ;
+- ne pas utiliser de gras ;
+- ne pas écrire les intitulés "Ce qui est observé", "Ce qui est satisfaisant" ou "Ce qui reste à améliorer" ;
+- éviter les formulations longues ou scolaires ;
+- privilégier une formulation directement utilisable dans une fiche d'évaluation.
 
 Utilise les repères qualitatifs uniquement pour contextualiser la formulation.
 Ne choisis pas la note.
@@ -42,8 +53,8 @@ Ne suggère pas un niveau qui n'est pas indiqué par le commentaire initial ou l
 Ne transforme pas une remarque mineure en défaut majeur.
 Ne transforme pas une difficulté importante en simple détail.
 
-Si le texte initial est très court, produire un commentaire court.
-Si une rubrique n'est pas pertinente, ne pas la créer artificiellement.`;
+Si le texte initial est très court, produire un commentaire très court.
+Si une dimension n'est pas pertinente, ne pas la créer artificiellement.`;
 
 app.use(express.json({ limit: '20kb' }));
 app.use((request, response, next) => {
