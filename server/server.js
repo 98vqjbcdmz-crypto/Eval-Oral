@@ -44,6 +44,9 @@ Format de sortie :
 - ne pas utiliser de liste numérotée ;
 - ne pas utiliser de gras ;
 - ne pas écrire les intitulés "Ce qui est observé", "Ce qui est satisfaisant" ou "Ce qui reste à améliorer" ;
+- ne pas nommer l'item, le critère ou le champ dans le commentaire ;
+- ne pas commencer par "L'évaluation de...", "L'item...", "Le critère..." ou une formule équivalente ;
+- rédiger directement sur ce que l'étudiant montre, réussit ou doit améliorer ;
 - éviter les formulations longues ou scolaires ;
 - privilégier une formulation directement utilisable dans une fiche d'évaluation.
 
