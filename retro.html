@@ -139,6 +139,9 @@
       flex: 1;
       min-height: 0;
     }
+    .grid.two-cards {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
     .card {
       padding: 24px;
       display: flex;
@@ -315,6 +318,10 @@
       font-weight: 700;
       font-size: 0.98rem;
     }
+    .session-end {
+      color: var(--muted);
+      font-weight: 800;
+    }
     .hidden { display: none !important; }
     @media (max-width: 1280px) {
       .topbar, .grid { grid-template-columns: 1fr; }
@@ -343,8 +350,8 @@
 
     <section id="statusBox" class="box status">En attente de session.</section>
 
-    <section class="grid">
-      <article class="card">
+    <section id="mainGrid" class="grid">
+      <article id="card1" class="card">
         <div class="head">
           <div class="title" id="card1Title">Étudiant qui passe</div>
           <span class="tag blue" id="card1Tag">10 minutes</span>
@@ -360,7 +367,7 @@
         </div>
       </article>
 
-      <article class="card">
+      <article id="card2" class="card">
         <div class="head">
           <div class="title" id="card2Title">Patient</div>
           <span class="tag gold" id="card2Tag">en salle</span>
@@ -376,7 +383,7 @@
         </div>
       </article>
 
-      <article class="card compact">
+      <article id="card3" class="card compact">
         <div class="head">
           <div class="title" id="card3Title">Étudiant qui prépare</div>
           <span class="tag green" id="card3Tag">15 minutes</span>
@@ -408,6 +415,10 @@
       clockDate: document.getElementById('clockDate'),
       statusBox: document.getElementById('statusBox'),
       footerInfo: document.getElementById('footerInfo'),
+      mainGrid: document.getElementById('mainGrid'),
+      card1: document.getElementById('card1'),
+      card2: document.getElementById('card2'),
+      card3: document.getElementById('card3'),
       c1Title: document.getElementById('card1Title'),
       c1Tag: document.getElementById('card1Tag'),
       c1Name: document.getElementById('card1Name'),
@@ -488,6 +499,20 @@
       barEl.style.width = `${pct}%`;
     }
 
+    function hasQueuedStudent(state) {
+      return (state.queue || []).some(item => item && item.type !== 'pause');
+    }
+
+    function lastPassageName(state) {
+      const last = [...(state.history || [])].reverse().find(item => item?.name);
+      return last?.name || '';
+    }
+
+    function setPrepCardVisible(visible) {
+      els.card3.classList.toggle('hidden', !visible);
+      els.mainGrid.classList.toggle('two-cards', !visible);
+    }
+
     function updateRunningTimer(timer) {
       if (!timer?.running) return;
       if (!timer.endsAt && timer.startedAt) {
@@ -518,6 +543,13 @@
       const current = state.roles?.current || null;
       const patient = state.roles?.patient || null;
       const prep = state.roles?.prep || null;
+      const nextPrep = state.roles?.nextPrep || null;
+      const hasMoreAfterCurrent = !!(prep || nextPrep || hasQueuedStudent(state));
+      const lastName = lastPassageName(state);
+
+      els.card1.classList.remove('hidden');
+      els.card2.classList.remove('hidden');
+      setPrepCardVisible(!!prep);
 
       els.c1Title.textContent = 'Étudiant qui passe';
       els.c1Tag.textContent = '10 minutes';
@@ -535,27 +567,39 @@
       els.c2TimerLabel.textContent = 'Information';
       els.c2TimerValue.textContent = '—';
 
-      els.c3Title.textContent = 'Étudiant qui prépare';
-      els.c3Tag.textContent = '15 minutes';
-      els.c3Name.textContent = prep?.name || '—';
-      setCaseText(els.c3Case, prep?.caseTitle || 'En attente de tirage.');
-      applyDrawPreview(state, 'prep', els.c3Case);
-      setIdentity(els.c3Identity, prep);
-      setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, state.timers?.prep);
+      if (prep) {
+        els.c3Title.textContent = 'Étudiant qui prépare';
+        els.c3Tag.textContent = '15 minutes';
+        els.c3Name.textContent = prep.name || '—';
+        setCaseText(els.c3Case, prep.caseTitle || 'En attente de tirage.');
+        applyDrawPreview(state, 'prep', els.c3Case);
+        setIdentity(els.c3Identity, prep);
+        setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, state.timers?.prep);
+      }
 
       const nextName = state.queue?.[0]?.name || 'aucun autre étudiant';
-      if (state.awaitingBootstrapSwap) {
+      if (!current && !hasMoreAfterCurrent) {
+        els.statusBox.innerHTML = `<span class="session-end">Session d'oraux terminée${lastName ? ` après le passage de ${lastName}` : ''}.</span>`;
+        els.footerInfo.textContent = 'Fin de session.';
+      } else if (!hasMoreAfterCurrent && current) {
+        els.statusBox.innerHTML = `Dernier oral en cours : ${current.name || '—'}. <span class="session-end">Fin de session après ce passage.</span>`;
+        els.footerInfo.textContent = 'Aucun autre étudiant en préparation ou en attente.';
+      } else if (state.awaitingBootstrapSwap) {
         els.statusBox.textContent = `Premier oral : ${current?.name || '—'} passe. Ensuite, faites passer l'autre étudiant du binôme initial. ${prep?.name || 'Aucun étudiant'} prépare en parallèle.`;
       } else {
         els.statusBox.textContent = `Oral en cours : ${current?.name || '—'}. Préparation parallèle : ${prep?.name || '—'}. Prochain étudiant à entrer : ${nextName}.`;
+        els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas disponibles pour le prochain tirage.`;
       }
-      els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas disponibles pour le prochain tirage.`;
     }
 
     function renderBootstrap(state) {
       const A = state.bootstrap?.A || null;
       const B = state.bootstrap?.B || null;
       const next = state.queue?.[0] || null;
+
+      els.card1.classList.remove('hidden');
+      els.card2.classList.remove('hidden');
+      setPrepCardVisible(!!next);
 
       els.c1Title.textContent = '1er étudiant du binôme';
       els.c1Tag.textContent = 'préparation';
@@ -575,18 +619,23 @@
       els.c2TimerLabel.textContent = 'Minuteur';
       setTimerVisual(els.c2Timer, els.c2TimerValue, els.c2TimerBar, state.timers?.bootB);
 
-      els.c3Title.textContent = 'Prochain étudiant';
-      els.c3Tag.textContent = 'attente';
-      els.c3Name.textContent = next?.name || '—';
-      setCaseText(els.c3Case, 'Entrera en préparation après le lancement du premier oral.');
-      setIdentity(els.c3Identity, null);
-      setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, { duration: 900, remaining: 900, running: false, finished: false });
+      if (next) {
+        els.c3Title.textContent = 'Prochain étudiant';
+        els.c3Tag.textContent = 'attente';
+        els.c3Name.textContent = next.name || '—';
+        setCaseText(els.c3Case, 'Entrera en préparation après le lancement du premier oral.');
+        setIdentity(els.c3Identity, null);
+        setTimerVisual(els.c3Timer, els.c3TimerValue, els.c3TimerBar, { duration: 900, remaining: 900, running: false, finished: false });
+      }
 
       els.statusBox.textContent = 'Binôme initial en préparation. Vérifiez l’identité, tirez les cas, puis choisissez qui passe en premier.';
       els.footerInfo.textContent = `${(state.availableCases || []).length ?? 0} cas disponibles pour le prochain tirage.`;
     }
 
     function renderSetup() {
+      els.card1.classList.remove('hidden');
+      els.card2.classList.remove('hidden');
+      setPrepCardVisible(true);
       els.statusBox.textContent = 'En attente de session.';
       [
         [els.c1Title, 'Étudiant qui passe'], [els.c2Title, 'Patient'], [els.c3Title, 'Étudiant qui prépare'],
