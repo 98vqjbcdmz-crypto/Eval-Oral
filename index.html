@@ -1139,15 +1139,24 @@
             <div id="evaluationItems" class="evaluation-grid"></div>
             <div class="synthesis-grid">
               <div>
-                <label for="positivePoints" class="mini-label">Points positifs de l'étudiant</label>
+                <div class="comment-head">
+                  <label for="positivePoints" class="mini-label">Points positifs de l'étudiant</label>
+                  <button id="positivePointsRewriteBtn" class="rewrite-btn" type="button">Structurer</button>
+                </div>
                 <textarea id="positivePoints"></textarea>
               </div>
               <div>
-                <label for="improvementAreas" class="mini-label">Axes d'amélioration</label>
+                <div class="comment-head">
+                  <label for="improvementAreas" class="mini-label">Axes d'amélioration</label>
+                  <button id="improvementAreasRewriteBtn" class="rewrite-btn" type="button">Structurer</button>
+                </div>
                 <textarea id="improvementAreas"></textarea>
               </div>
               <div>
-                <label for="lowScoreComment" class="mini-label">Commentaire si note &lt; 10, risque ou drapeau rouge</label>
+                <div class="comment-head">
+                  <label for="lowScoreComment" class="mini-label">Commentaire si note &lt; 10, risque ou drapeau rouge</label>
+                  <button id="lowScoreCommentRewriteBtn" class="rewrite-btn" type="button">Structurer</button>
+                </div>
                 <textarea id="lowScoreComment"></textarea>
               </div>
             </div>
@@ -1298,7 +1307,7 @@
     </div>
   </div>
 
-  <script src="config.js?v=20260423-2"></script>
-  <script src="app.js?v=20260423-2"></script>
+  <script src="config.js?v=20260423-3"></script>
+  <script src="app.js?v=20260423-3"></script>
 </body>
 </html>

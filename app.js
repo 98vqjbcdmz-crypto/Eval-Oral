@@ -168,8 +168,11 @@ const els = {
   evaluationIdChecked: document.getElementById('evaluationIdChecked'),
   evaluationItems: document.getElementById('evaluationItems'),
   positivePoints: document.getElementById('positivePoints'),
+  positivePointsRewriteBtn: document.getElementById('positivePointsRewriteBtn'),
   improvementAreas: document.getElementById('improvementAreas'),
+  improvementAreasRewriteBtn: document.getElementById('improvementAreasRewriteBtn'),
   lowScoreComment: document.getElementById('lowScoreComment'),
+  lowScoreCommentRewriteBtn: document.getElementById('lowScoreCommentRewriteBtn'),
   riskFlag: document.getElementById('riskFlag'),
   riskComment: document.getElementById('riskComment'),
   prepName: document.getElementById('prepName'),
@@ -312,6 +315,10 @@ function rewriteCriterionComment(itemId, button) {
 function rewritePreviewComment() {
   const item = EVALUATION_CRITERIA[previewCriterionIndex];
   rewriteCommentField(els.criterionPreviewComment, els.criterionPreviewRewriteBtn, item?.label || '');
+}
+
+function rewriteSynthesisField(fieldKey, buttonKey, label) {
+  rewriteCommentField(els[fieldKey], els[buttonKey], label);
 }
 
 function saveState(silent = false) {
@@ -2117,8 +2124,11 @@ els.currentIdentityBadge.addEventListener('click', openCurrentEvaluationEditor);
 els.evaluationCaseTitle.addEventListener('change', updateEvaluationFromForm);
 els.evaluationIdChecked.addEventListener('change', updateEvaluationFromForm);
 els.positivePoints.addEventListener('input', updateEvaluationFromForm);
+els.positivePointsRewriteBtn.addEventListener('click', () => rewriteSynthesisField('positivePoints', 'positivePointsRewriteBtn', 'Points positifs de l’étudiant'));
 els.improvementAreas.addEventListener('input', updateEvaluationFromForm);
+els.improvementAreasRewriteBtn.addEventListener('click', () => rewriteSynthesisField('improvementAreas', 'improvementAreasRewriteBtn', 'Axes d’amélioration'));
 els.lowScoreComment.addEventListener('input', updateEvaluationFromForm);
+els.lowScoreCommentRewriteBtn.addEventListener('click', () => rewriteSynthesisField('lowScoreComment', 'lowScoreCommentRewriteBtn', 'Commentaire si note inférieure à 10, risque ou drapeau rouge'));
 els.riskFlag.addEventListener('change', updateEvaluationFromForm);
 els.riskComment.addEventListener('input', updateEvaluationFromForm);
 
