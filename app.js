@@ -205,7 +205,6 @@ const els = {
   restoreCasesBtn: document.getElementById('restoreCasesBtn'),
   pauseEvaluationsBtn: document.getElementById('pauseEvaluationsBtn'),
   dailySummaryBtn: document.getElementById('dailySummaryBtn'),
-  importSessionBtn: document.getElementById('importSessionBtn'),
   importSessionFile: document.getElementById('importSessionFile'),
   downloadSessionBtn: document.getElementById('downloadSessionBtn'),
   footerState: document.getElementById('footerState'),
@@ -1039,11 +1038,6 @@ function exportSession() {
   a.click();
   URL.revokeObjectURL(url);
   showToast('Session exportée.');
-}
-
-function chooseSessionImportFile() {
-  els.importSessionFile.value = '';
-  els.importSessionFile.click();
 }
 
 function importSessionFromFile(event) {
@@ -1999,7 +1993,9 @@ els.undoRotationBtn.addEventListener('click', undoLastRotation);
 els.restoreCasesBtn.addEventListener('click', recalculateUrn);
 els.pauseEvaluationsBtn.addEventListener('click', pauseEvaluations);
 els.dailySummaryBtn.addEventListener('click', generateDailySummaryPdf);
-els.importSessionBtn.addEventListener('click', chooseSessionImportFile);
+els.importSessionFile.addEventListener('click', () => {
+  els.importSessionFile.value = '';
+});
 els.importSessionFile.addEventListener('change', importSessionFromFile);
 els.downloadSessionBtn.addEventListener('click', exportSession);
 
