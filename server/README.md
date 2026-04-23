@@ -35,7 +35,7 @@ Créer une application Automator avec l'action `Exécuter un script Shell` :
 ```bash
 cd "/Users/simlbf/Downloads/oraux_ifmk_dashboard/server"
 if ! curl -fsS "http://localhost:3000/health" >/dev/null 2>&1; then
-  nohup npm start >/tmp/oraux-ifmk-server.log 2>&1 &
+  nohup /usr/local/bin/node server.js >/tmp/oraux-ifmk-server.log 2>&1 &
   sleep 2
 fi
 open -a Safari "http://localhost:3000/"
