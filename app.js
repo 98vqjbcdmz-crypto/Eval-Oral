@@ -315,6 +315,9 @@ const SYNTHESIS_REWRITE_CONTEXTS = {
   positivePoints: {
     focus: 'Synthèse courte des éléments réussis, des compétences observées et des points d’appui de l’étudiant.',
     rubric: [
+      'Ne retenir que les éléments positifs, réussites, acquis ou points d’appui.',
+      'Ne pas mentionner les manques, limites, erreurs ou axes d’amélioration dans ce champ.',
+      'S’il y a peu d’éléments favorables, produire une phrase prudente et courte sans inventer.',
       'Valoriser ce qui est réellement observé.',
       'Rester concret et exploitable.',
       'Ne pas transformer un point simplement correct en performance remarquable.'
@@ -323,6 +326,8 @@ const SYNTHESIS_REWRITE_CONTEXTS = {
   improvementAreas: {
     focus: 'Synthèse courte des éléments à travailler, formulée de manière constructive, concrète et exploitable.',
     rubric: [
+      'Ne retenir que les éléments à améliorer, à préciser, à justifier ou à retravailler.',
+      'Ne pas rappeler les réussites dans ce champ, sauf si elles servent directement à formuler un axe de progression.',
       'Formuler les axes de progression sans jugement de personne.',
       'Prioriser les points qui aideront l’étudiant à progresser.',
       'Ne pas ajouter de difficulté qui n’est pas mentionnée.'

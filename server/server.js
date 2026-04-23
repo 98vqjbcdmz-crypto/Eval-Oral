@@ -103,6 +103,12 @@ function buildRewriteInput({ criterion, score, max, focus, rubric, text, mode })
   lines.push(`Item d'évaluation : ${criterion || 'Non précisé'}`);
   if (mode === 'synthesis') {
     lines.push('Mode : générer une synthèse courte à partir des notes et commentaires des items déjà évalués.');
+    if (criterion.toLowerCase().includes('positif')) {
+      lines.push('Consigne spécifique : produire uniquement les points positifs. Ne pas mentionner les limites, erreurs, manques ou axes d’amélioration.');
+    }
+    if (criterion.toLowerCase().includes('amélioration') || criterion.toLowerCase().includes('amelioration')) {
+      lines.push('Consigne spécifique : produire uniquement les axes d’amélioration. Ne pas rappeler les points positifs sauf s’ils servent directement à formuler une progression.');
+    }
   }
   if (score) {
     lines.push(`Note sélectionnée pour l'item : ${score}${max ? ` / ${max}` : ''}`);
