@@ -28,6 +28,22 @@ http://localhost:3000/
 
 Dans ce mode, la page et l'API utilisent la même adresse locale, ce qui évite les blocages navigateur entre GitHub Pages et `localhost`.
 
+## Automator
+
+Créer une application Automator avec l'action `Exécuter un script Shell` :
+
+```bash
+cd "/Users/simlbf/Downloads/oraux_ifmk_dashboard/server"
+if ! curl -fsS "http://localhost:3000/health" >/dev/null 2>&1; then
+  nohup npm start >/tmp/oraux-ifmk-server.log 2>&1 &
+  sleep 2
+fi
+open -a Safari "http://localhost:3000/"
+open -a Safari "http://localhost:3000/retro.html"
+```
+
+Pour arrêter le serveur, utiliser le bouton `Arrêter serveur local` dans le bloc `Vue d'ensemble` du dashboard local.
+
 ## Configuration utile
 
 - `OPENAI_API_KEY` : clé OpenAI, jamais à committer.

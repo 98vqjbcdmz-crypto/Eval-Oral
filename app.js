@@ -263,6 +263,7 @@ const els = {
   dailySummaryBtn: document.getElementById('dailySummaryBtn'),
   importSessionFile: document.getElementById('importSessionFile'),
   downloadSessionBtn: document.getElementById('downloadSessionBtn'),
+  stopServerBtn: document.getElementById('stopServerBtn'),
   footerState: document.getElementById('footerState'),
   drawModal: document.getElementById('drawModal'),
   drawTarget: document.getElementById('drawTarget'),
@@ -349,6 +350,10 @@ const SYNTHESIS_REWRITE_CONTEXTS = {
 function getRewriteApiUrl() {
   const baseUrl = (window.ORAL_API_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
   return `${baseUrl}/api/rewrite`;
+}
+
+function isLocalServerView() {
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 }
 
 function dispatchTextUpdate(field) {
@@ -453,6 +458,20 @@ function rewriteSynthesisField(fieldKey, buttonKey, label) {
     sourceText: currentText || itemSummary,
     mode: currentText ? 'rewrite' : 'synthesis'
   });
+}
+
+async function stopLocalServer() {
+  if (!isLocalServerView()) return;
+  const confirmed = confirm('Arrêter le serveur local ? La page ne pourra plus utiliser l’aide rédactionnelle tant que le serveur ne sera pas relancé.');
+  if (!confirmed) return;
+  els.footerState.textContent = 'Arrêt du serveur local...';
+  try {
+    await fetch('/api/shutdown', { method: 'POST' });
+    els.footerState.textContent = 'Serveur local arrêté. Tu peux fermer cette page.';
+  } catch (error) {
+    console.error(error);
+    els.footerState.textContent = 'Serveur local arrêté ou déjà indisponible.';
+  }
 }
 
 function saveState(silent = false) {
@@ -2130,6 +2149,7 @@ function renderMainRoles() {
   els.undoRotationBtn.disabled = !state.lastRotationBackup;
   els.pauseEvaluationsBtn.disabled = state.phase !== 'live';
   els.dailySummaryBtn.disabled = !(state.submittedEvaluations || []).length;
+  els.stopServerBtn.classList.toggle('hidden', !isLocalServerView());
 }
 
 function renderOverview() {
@@ -2277,6 +2297,7 @@ els.importSessionFile.addEventListener('click', () => {
 });
 els.importSessionFile.addEventListener('change', importSessionFromFile);
 els.downloadSessionBtn.addEventListener('click', exportSession);
+els.stopServerBtn.addEventListener('click', stopLocalServer);
 
 els.confirmDrawBtn.addEventListener('click', confirmDraw);
 els.cancelDrawBtn.addEventListener('click', closeDrawModal);

@@ -218,6 +218,18 @@ app.post('/api/rewrite', async (request, response) => {
   }
 });
 
+app.post('/api/shutdown', (request, response) => {
+  const host = request.hostname;
+  if (host !== 'localhost' && host !== '127.0.0.1') {
+    response.status(403).json({ error: 'Arrêt réservé au serveur local.' });
+    return;
+  }
+  response.json({ ok: true });
+  setTimeout(() => {
+    process.exit(0);
+  }, 250);
+});
+
 app.listen(port, () => {
   console.log(`Aide rédactionnelle prête sur http://localhost:${port}`);
 });
