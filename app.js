@@ -348,10 +348,29 @@ function dispatchTextUpdate(field) {
   field.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function getEvaluationItemSummary() {
+  const evaluation = getActiveEvaluation();
+  if (!evaluation) return '';
+  hydrateEvaluationCriteria(evaluation);
+  const lines = EVALUATION_CRITERIA.map(item => {
+    const criterion = evaluation.criteria[item.id] || {};
+    const parts = [];
+    if (criterion.score) {
+      parts.push(`note ${criterion.score}/${item.max}`);
+    }
+    if (criterion.comment?.trim()) {
+      parts.push(`commentaire : ${criterion.comment.trim()}`);
+    }
+    return parts.length ? `- ${item.label} : ${parts.join(' ; ')}` : '';
+  }).filter(Boolean);
+  return lines.join('\n');
+}
+
 async function rewriteCommentField(field, button, rewriteContext = {}) {
   if (!field || !button) return;
   const text = field.value.trim();
-  if (!text) {
+  const sourceText = text || rewriteContext.sourceText || '';
+  if (!sourceText.trim()) {
     alert('Ajoute d’abord un commentaire à structurer.');
     field.focus();
     return;
@@ -366,12 +385,13 @@ async function rewriteCommentField(field, button, rewriteContext = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text,
+        text: sourceText,
         criterion: rewriteContext.label || '',
         score: rewriteContext.score || '',
         max: rewriteContext.max || '',
         focus: rewriteContext.focus || '',
-        rubric: rewriteContext.rubric || []
+        rubric: rewriteContext.rubric || [],
+        mode: text ? 'rewrite' : (rewriteContext.mode || 'rewrite')
       })
     });
     const payload = await response.json().catch(() => ({}));
@@ -416,10 +436,14 @@ function rewritePreviewComment() {
 
 function rewriteSynthesisField(fieldKey, buttonKey, label) {
   const context = SYNTHESIS_REWRITE_CONTEXTS[fieldKey] || {};
+  const currentText = els[fieldKey]?.value.trim() || '';
+  const itemSummary = getEvaluationItemSummary();
   rewriteCommentField(els[fieldKey], els[buttonKey], {
     label,
     focus: context.focus || '',
-    rubric: context.rubric || []
+    rubric: context.rubric || [],
+    sourceText: currentText || itemSummary,
+    mode: currentText ? 'rewrite' : 'synthesis'
   });
 }
 

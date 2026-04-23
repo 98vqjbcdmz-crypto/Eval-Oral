@@ -98,9 +98,12 @@ function normalizeRubric(value) {
     .slice(0, 6);
 }
 
-function buildRewriteInput({ criterion, score, max, focus, rubric, text }) {
+function buildRewriteInput({ criterion, score, max, focus, rubric, text, mode }) {
   const lines = [];
   lines.push(`Item d'évaluation : ${criterion || 'Non précisé'}`);
+  if (mode === 'synthesis') {
+    lines.push('Mode : générer une synthèse courte à partir des notes et commentaires des items déjà évalués.');
+  }
   if (score) {
     lines.push(`Note sélectionnée pour l'item : ${score}${max ? ` / ${max}` : ''}`);
   } else {
@@ -114,7 +117,7 @@ function buildRewriteInput({ criterion, score, max, focus, rubric, text }) {
     rubric.forEach(item => lines.push(`- ${item}`));
   }
   lines.push('');
-  lines.push('Commentaire brut à restructurer :');
+  lines.push(mode === 'synthesis' ? 'Éléments disponibles à synthétiser :' : 'Commentaire brut à restructurer :');
   lines.push(text);
   return lines.join('\n');
 }
@@ -152,9 +155,10 @@ app.post('/api/rewrite', async (request, response) => {
   const score = String(request.body?.score || '').trim();
   const max = String(request.body?.max || '').trim();
   const focus = String(request.body?.focus || '').trim();
+  const mode = request.body?.mode === 'synthesis' ? 'synthesis' : 'rewrite';
   const rubric = normalizeRubric(request.body?.rubric);
   if (!text) {
-    response.status(400).json({ error: 'Le texte à restructurer est vide.' });
+    response.status(400).json({ error: mode === 'synthesis' ? 'Aucun item renseigné pour générer la synthèse.' : 'Le texte à restructurer est vide.' });
     return;
   }
   if (text.length > 4000) {
@@ -172,7 +176,7 @@ app.post('/api/rewrite', async (request, response) => {
       body: JSON.stringify({
         model,
         instructions: rewritePrompt,
-        input: buildRewriteInput({ criterion, score, max, focus, rubric, text }),
+        input: buildRewriteInput({ criterion, score, max, focus, rubric, text, mode }),
         temperature: 0.2
       })
     });
