@@ -98,9 +98,20 @@ function normalizeRubric(value) {
     .slice(0, 6);
 }
 
+function shouldLimitTo150(criterion) {
+  const normalized = criterion.toLowerCase();
+  return normalized.includes('positif')
+    || normalized.includes('amélioration')
+    || normalized.includes('amelioration')
+    || normalized.includes('commentaire si note');
+}
+
 function buildRewriteInput({ criterion, score, max, focus, rubric, text, mode }) {
   const lines = [];
   lines.push(`Item d'évaluation : ${criterion || 'Non précisé'}`);
+  if (shouldLimitTo150(criterion)) {
+    lines.push('Contrainte de longueur : réponse limitée à 150 caractères maximum, espaces compris.');
+  }
   if (mode === 'synthesis') {
     lines.push('Mode : générer une synthèse courte à partir des notes et commentaires des items déjà évalués.');
     if (criterion.toLowerCase().includes('positif')) {

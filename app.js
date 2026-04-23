@@ -318,6 +318,7 @@ const SYNTHESIS_REWRITE_CONTEXTS = {
       'Ne retenir que les éléments positifs, réussites, acquis ou points d’appui.',
       'Ne pas mentionner les manques, limites, erreurs ou axes d’amélioration dans ce champ.',
       'S’il y a peu d’éléments favorables, produire une phrase prudente et courte sans inventer.',
+      'Limiter la réponse à 150 caractères maximum, espaces compris.',
       'Valoriser ce qui est réellement observé.',
       'Rester concret et exploitable.',
       'Ne pas transformer un point simplement correct en performance remarquable.'
@@ -328,6 +329,7 @@ const SYNTHESIS_REWRITE_CONTEXTS = {
     rubric: [
       'Ne retenir que les éléments à améliorer, à préciser, à justifier ou à retravailler.',
       'Ne pas rappeler les réussites dans ce champ, sauf si elles servent directement à formuler un axe de progression.',
+      'Limiter la réponse à 150 caractères maximum, espaces compris.',
       'Formuler les axes de progression sans jugement de personne.',
       'Prioriser les points qui aideront l’étudiant à progresser.',
       'Ne pas ajouter de difficulté qui n’est pas mentionnée.'
@@ -338,6 +340,7 @@ const SYNTHESIS_REWRITE_CONTEXTS = {
     rubric: [
       'Être clair sur les éléments observés qui justifient la vigilance.',
       'Ne pas inventer de gravité non mentionnée.',
+      'Limiter la réponse à 150 caractères maximum, espaces compris.',
       'Conserver un ton factuel, professionnel et traçable.'
     ]
   }
