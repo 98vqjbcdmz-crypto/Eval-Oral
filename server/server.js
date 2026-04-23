@@ -98,7 +98,7 @@ function normalizeRubric(value) {
     .slice(0, 6);
 }
 
-function shouldLimitTo150(criterion) {
+function shouldLimitTo70(criterion) {
   const normalized = criterion.toLowerCase();
   return normalized.includes('positif')
     || normalized.includes('amélioration')
@@ -109,8 +109,8 @@ function shouldLimitTo150(criterion) {
 function buildRewriteInput({ criterion, score, max, focus, rubric, text, mode }) {
   const lines = [];
   lines.push(`Item d'évaluation : ${criterion || 'Non précisé'}`);
-  if (shouldLimitTo150(criterion)) {
-    lines.push('Contrainte de longueur : réponse limitée à 150 caractères maximum, espaces compris.');
+  if (shouldLimitTo70(criterion)) {
+    lines.push('Contrainte de longueur : réponse limitée à 70 caractères maximum, espaces compris.');
   }
   if (mode === 'synthesis') {
     lines.push('Mode : générer une synthèse courte à partir des notes et commentaires des items déjà évalués.');
