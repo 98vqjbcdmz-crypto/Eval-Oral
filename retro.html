@@ -334,7 +334,7 @@
   <div class="page">
     <header class="topbar">
       <div class="box logo-box">
-        <img id="logoImage" src="logo-ifmk.png" alt="Logo IFMK" />
+        <img id="logoImage" src="logo-ifmk.png?v=20260423-2" alt="Logo IFMK" />
         <div id="logoFallback" class="fallback">IFMK<br/>Montpellier</div>
       </div>
       <div class="box title-box">
@@ -669,14 +669,25 @@
       renderLive(state);
     }
 
-    els.logoImage.addEventListener('load', () => {
+    function showLogo() {
       els.logoImage.style.display = 'block';
       els.logoFallback.classList.add('hidden');
-    });
-    els.logoImage.addEventListener('error', () => {
+    }
+
+    function showLogoFallback() {
       els.logoImage.style.display = 'none';
       els.logoFallback.classList.remove('hidden');
-    });
+    }
+
+    els.logoImage.addEventListener('load', showLogo);
+    els.logoImage.addEventListener('error', showLogoFallback);
+    if (els.logoImage.complete) {
+      if (els.logoImage.naturalWidth > 0) {
+        showLogo();
+      } else {
+        showLogoFallback();
+      }
+    }
 
     window.addEventListener('storage', (event) => {
       if (event.key === STORAGE_KEY) render();

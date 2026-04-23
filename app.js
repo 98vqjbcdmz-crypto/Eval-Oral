@@ -2201,14 +2201,25 @@ function render() {
   updateBackupButton();
 }
 
-els.logoImage.addEventListener('load', () => {
+function showLogo() {
   els.logoImage.style.display = 'block';
   els.logoFallback.classList.add('hidden');
-});
-els.logoImage.addEventListener('error', () => {
+}
+
+function showLogoFallback() {
   els.logoImage.style.display = 'none';
   els.logoFallback.classList.remove('hidden');
-});
+}
+
+els.logoImage.addEventListener('load', showLogo);
+els.logoImage.addEventListener('error', showLogoFallback);
+if (els.logoImage.complete) {
+  if (els.logoImage.naturalWidth > 0) {
+    showLogo();
+  } else {
+    showLogoFallback();
+  }
+}
 
 els.studentsInput.addEventListener('input', () => {
   state.config.studentsRaw = els.studentsInput.value;
